@@ -161,3 +161,33 @@ Charts keep a sparse-data guard (a clear message instead of a misleading line).
 **Convenience without corrupting facts.** "Duplicate last set" and prefilled
 inputs never mark a set as performed — only an explicit add/save writes a record,
 and weight prefill respects the exercise's unit (never coerces kg↔lb).
+
+## Starter exercise library + fast routine flow (v0.10.0)
+
+A curated built-in library (`js/data/builtinExercises.js`, ~83 common exercises)
+makes a fresh install immediately usable. It is **presentation data on the
+existing schema** — no migration. Each record has a STABLE id (`builtin:<slug>`),
+an Arabic display `name` (primary), an English `nameEn` (secondary + searchable),
+`aliases`, and broad Arabic `muscleGroup`/`equipment` that `domain/muscleMap.js`
+already understands.
+
+**Idempotent seeding** (`seedBuiltinExercises`, run once after `openDB`): creates
+a built-in only when its stable id is absent, so re-running never duplicates and
+user-created exercises and workout history are never touched, renamed, reassigned,
+or merged. A `builtinLibraryVersion` settings flag short-circuits the common case
+and lets a future revision seed only newly added ids. A built-in the user archived
+still exists by id and is skipped. Built-ins are additive: a user's "Chest press"
+and the built-in "Chest Press (Machine)" remain separate permanent identities.
+
+**Fast picker** (`exercisePicker.js`): search (Arabic OR English/alias) →
+`الأخيرة` (from factual history) + broad muscle chips + equipment chips → tap to
+add. Muscle chips map via `muscleMap` broad regions (not exact strings). Custom
+creation is a secondary `+ تمرين مخصص` action. Selecting passes the exercise's
+permanent id up; it never opens detail or mutates identity.
+
+**Muscle visualization surfacing**: the existing local SVG (`bodyMap.js`) now
+renders where it helps — the routine overview and each routine day (regions from
+that day's exercises), and Exercise Detail (the exercise's broad region). It only
+appears when the group maps to a region; unmapped groups show nothing (no invented
+anatomy). Built-ins carry mapped Arabic groups, so the map is now consistently
+visible.

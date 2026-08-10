@@ -16,6 +16,8 @@ import { formatWeight } from '../../core/num.js';
 import { formatArabicDate, formatArabicDateShort } from '../../core/dates.js';
 import { openExerciseEditor } from './exerciseSheets.js';
 import { pageHead, hero, statLine, emptyState } from '../../core/ui.js';
+import { bodyMap } from '../../core/bodyMap.js';
+import { groupToRegion } from '../../domain/muscleMap.js';
 import { openSheet } from '../../core/sheet.js';
 
 export function renderExerciseDetail(root, ctx = {}) {
@@ -39,9 +41,14 @@ export function renderExerciseDetail(root, ctx = {}) {
     const last = lastPerformance(sets, {});
 
     const meta = [x.muscleGroup, x.equipment].filter(Boolean).join(' · ') || 'بدون تصنيف';
+    const region = groupToRegion(x.muscleGroup) || groupToRegion(x.name);
+    const regionView = region
+      ? el('div', { className: 'panel' }, [bodyMap({ primary: new Set([region]), secondary: new Set() }, { legend: true })])
+      : null;
 
     root.replaceChildren(el('div', { className: 'route-view stack' }, [
-      pageHead(x.name, { sub: meta, actionLabel: 'تعديل', onAction: () => openExerciseEditor({ exercise: x, afterChange: draw }) }),
+      pageHead(x.name, { sub: x.nameEn || meta, actionLabel: 'تعديل', onAction: () => openExerciseEditor({ exercise: x, afterChange: draw }) }),
+      regionView,
       bestPanel(maxWeightByUnit, last),
       chartPanel(sets),
       bestRepsPanel(bestReps),

@@ -5,6 +5,7 @@
 import { el } from './core/dom.js';
 import { ICONS } from './core/icons.js';
 import { openDB } from './core/db.js';
+import { seedBuiltinExercises } from './data/exercises.repo.js';
 import { renderHome } from './features/home/home.js';
 import { renderWeight } from './features/weight/weight.js';
 import { renderGoals } from './features/goals/goals.js';
@@ -145,6 +146,14 @@ async function main() {
     mainEl.replaceChildren(el('div', { className: 'notice', text:
       'تعذّر فتح قاعدة البيانات المحلية. تأكّد أن المتصفح يسمح بتخزين البيانات.' }));
     return;
+  }
+
+  // Seed the built-in starter library idempotently (additive; never touches
+  // user exercises or history). Non-fatal if it fails.
+  try {
+    await seedBuiltinExercises();
+  } catch (err) {
+    console.error('seed builtins failed', err);
   }
 
   await renderRoute();

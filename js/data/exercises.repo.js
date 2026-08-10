@@ -9,9 +9,43 @@ import { getAll, getAllByIndex, get, put, del } from '../core/db.js';
 import { uuid } from '../core/ids.js';
 import { now } from '../core/dates.js';
 import { emit } from '../core/events.js';
+import { getConfig, setConfig } from './settings.repo.js';
+import { BUILTIN_EXERCISES, BUILTIN_VERSION } from './builtinExercises.js';
 
 const STORE = 'exercises';
 const clean = (v) => String(v ?? '').trim();
+
+/**
+ * Seed the curated starter library idempotently. A built-in is only created if
+ * its stable id does not already exist, so:
+ *   - fresh installs get the whole library,
+ *   - re-running never duplicates,
+ *   - user-created exercises are never touched or merged,
+ *   - a built-in the user archived still exists (by id) → skipped.
+ * A version flag short-circuits the common case (already seeded at this version)
+ * and lets a future library revision seed only newly added ids.
+ * @returns {Promise<number>} how many built-ins were created this run
+ */
+export async function seedBuiltinExercises() {
+  const seededVersion = await getConfig('builtinLibraryVersion');
+  if (seededVersion === BUILTIN_VERSION) return 0;
+  // A newly created built-in adopts the user's CURRENT default exercise unit.
+  // This only affects records created in this run; existing exercises (built-in
+  // or custom) and workout history are never rewritten, and later settings
+  // changes never retroactively mutate an existing exercise's unit.
+  const defaultUnit = (await getConfig('defaultExerciseUnit')) === 'kg' ? 'kg' : 'lb';
+  const ts = now();
+  let created = 0;
+  for (const b of BUILTIN_EXERCISES) {
+    const existing = await get(STORE, b.id);
+    if (existing) continue;                       // never overwrite / duplicate / re-unit
+    await put(STORE, { ...b, defaultUnit, createdAt: ts, updatedAt: ts });
+    created++;
+  }
+  await setConfig('builtinLibraryVersion', BUILTIN_VERSION);
+  if (created) emit('exercises:changed', {});
+  return created;
+}
 
 export function validateExercise(x) {
   const errors = [];
@@ -97,11 +131,19 @@ export async function getFacets() {
   return { muscles, equipment };
 }
 
-/** Search/filter active exercises by name term, muscle group, and equipment. */
+/** Search/filter active exercises by name term, muscle group, and equipment.
+ * Term matches the Arabic display name, the English name, and any aliases so a
+ * user can type either language. */
+export function matchesTerm(ex, t) {
+  if (!t) return true;
+  const hay = [ex.name, ex.nameEn, ...(ex.aliases || [])].filter(Boolean).join(' ').toLowerCase();
+  return hay.includes(t);
+}
+
 export async function queryExercises({ term = '', muscle = '', equipment = '' } = {}) {
   const t = clean(term).toLowerCase();
   let rows = await getActiveExercises();
-  if (t) rows = rows.filter((r) => r.name.toLowerCase().includes(t));
+  if (t) rows = rows.filter((r) => matchesTerm(r, t));
   if (muscle) rows = rows.filter((r) => r.muscleGroup === muscle);
   if (equipment) rows = rows.filter((r) => r.equipment === equipment);
   return rows;

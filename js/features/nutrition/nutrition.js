@@ -10,7 +10,7 @@ import { getTargetForDate } from '../../data/settings.repo.js';
 import { dayTotals, remaining } from '../../domain/nutritionStats.js';
 import { formatInt, formatWeight } from '../../core/num.js';
 import { todayLocal, addDays, formatArabicDate } from '../../core/dates.js';
-import { pageHead, hero, progress, statLine, emptyState } from '../../core/ui.js';
+import { pageHead, hero, progress, statLine, emptyState, numericLTR, valueUnit } from '../../core/ui.js';
 import { openAddEntrySheet, openEditEntrySheet } from './nutritionSheets.js';
 
 export function renderNutrition(root, ctx = {}) {
@@ -37,8 +37,8 @@ export function renderNutrition(root, ctx = {}) {
     function dateBar() {
       const picker = el('input', { className: 'input num grow', type: 'date', value: current, style: { textAlign: 'center' }, attrs: { 'aria-label': 'التاريخ' } });
       picker.addEventListener('change', () => { current = picker.value || todayLocal(); draw(); });
-      const prevBtn = el('button', { className: 'chip', attrs: { 'aria-label': 'اليوم السابق' }, text: '‹', onClick: () => { current = addDays(current, -1); draw(); } });
-      const nextBtn = el('button', { className: 'chip', attrs: { 'aria-label': 'اليوم التالي' }, text: '›', onClick: () => { current = addDays(current, 1); draw(); } });
+      const prevBtn = el('button', { className: 'chip', attrs: { 'aria-label': 'اليوم السابق' }, text: '›', onClick: () => { current = addDays(current, -1); draw(); } });
+      const nextBtn = el('button', { className: 'chip', attrs: { 'aria-label': 'اليوم التالي' }, text: '‹', onClick: () => { current = addDays(current, 1); draw(); } });
       return el('div', { className: 'entry', style: { alignItems: 'stretch' } }, [prevBtn, picker, nextBtn]);
     }
 
@@ -56,10 +56,11 @@ export function renderNutrition(root, ctx = {}) {
         parts.push(el('div', { style: { marginTop: 'var(--s-3)' } }, [progress(ratio, { over: ratio > 1 })]));
       }
       const lines = [];
-      if (rem != null) lines.push(statLine(rem >= 0 ? 'المتبقّي' : 'فوق الهدف', `${formatInt(Math.abs(rem))} سعرة`, { tone: rem >= 0 ? 'down' : 'up' }));
+      if (rem != null) lines.push(statLine(rem >= 0 ? 'المتبقّي' : 'فوق الهدف', numericLTR(`${formatInt(Math.abs(rem))} سعرة`), { tone: rem >= 0 ? 'down' : 'up' }));
       lines.push(statLine('البروتين', totals.protein == null
         ? 'غير معروف'
-        : `${formatWeight(totals.protein)} جم${protTarget != null ? ` / ${formatWeight(protTarget)}` : ''}${totals.hasUnknownProtein ? ' • بعضه غير معروف' : ''}`));
+        : numericLTR(`${formatWeight(totals.protein)}${protTarget != null ? ` / ${formatWeight(protTarget)}` : ''} جم${totals.hasUnknownProtein ? ' •' : ''}`)));
+      if (totals.hasUnknownProtein) lines.push(el('p', { className: 'muted-sm', text: 'بعض الأصناف بدون بروتين معروف.' }));
       parts.push(el('div', { style: { marginTop: 'var(--s-3)' } }, lines));
 
       const completeBtn = el('button', {
@@ -90,9 +91,11 @@ export function renderNutrition(root, ctx = {}) {
       const rows = entries.map((e) => el('button', { className: 'row', onClick: () => openEditEntrySheet({ entry: e, afterChange: draw }) }, [
         el('div', { className: 'row-label' }, [
           el('div', { text: e.nameSnapshot }),
-          el('div', { className: 'sub num', text: `${e.quantity !== 1 ? `×${e.quantity} • ` : ''}${e.finalProtein != null ? `${formatWeight(e.finalProtein)} جم بروتين` : 'بروتين غير معروف'}${e.servingSnapshot ? ` • ${e.servingSnapshot}` : ''}` }),
+          el('div', { className: 'sub' }, [
+            numericLTR(`${e.finalProtein != null ? `${formatWeight(e.finalProtein)} جم بروتين` : 'بروتين غير معروف'}${e.quantity !== 1 ? ` · ×${e.quantity}` : ''}${e.servingSnapshot ? ` · ${e.servingSnapshot}` : ''}`),
+          ]),
         ]),
-        el('div', { className: 'row-value num', style: { fontWeight: 'var(--w-medium)' }, text: `${formatInt(e.finalCalories)}` }),
+        valueUnit(formatInt(e.finalCalories), 'سعرة'),
       ]));
       return el('section', { className: 'section' }, [
         head, el('div', { className: 'list' }, rows),

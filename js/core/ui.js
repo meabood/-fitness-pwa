@@ -6,12 +6,45 @@
 import { el } from './dom.js';
 import { ICONS } from './icons.js';
 
-/** Large screen title with optional subtitle + trailing action. */
+/**
+ * A pure, number-led cluster forced to read left-to-right and never wrap:
+ * ranges ("55 / 130"), arrows ("106 → 94"), value+unit ("105.7 كجم"), and
+ * dates ("1 يناير 2027", "10 Aug 2026"). Use for numeric content whose internal
+ * order must be stable regardless of the surrounding RTL context.
+ */
+export function numericLTR(text) {
+  return el('span', { className: 'numeric-ltr', text: String(text) });
+}
+
+/** Value + unit as a number-led cluster (value dominant, unit smaller). */
+export function valueUnit(value, unit) {
+  return el('span', { className: 'val-cluster' }, [
+    el('span', { className: 'v', text: String(value) }),
+    unit ? el('span', { className: 'u', text: unit }) : null,
+  ].filter(Boolean));
+}
+
+/** Refined vertical reorder control: two accessible up/down buttons. */
+export function reorderControl({ onUp, onDown, labelUp = 'تحريك لأعلى', labelDown = 'تحريك لأسفل' } = {}) {
+  const up = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>';
+  const down = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  return el('div', { className: 'reorder' }, [
+    el('button', { attrs: { 'aria-label': labelUp }, html: up, onClick: onUp }),
+    el('button', { attrs: { 'aria-label': labelDown }, html: down, onClick: onDown }),
+  ]);
+}
+
+/** Large screen title with optional subtitle (string or Node) + trailing action. */
 export function pageHead(title, { sub = null, actionLabel = null, onAction = null } = {}) {
+  let subNode = null;
+  if (sub != null) {
+    subNode = (typeof sub === 'object' && sub.nodeType) ? sub : el('div', { className: 'ph-sub num', text: sub });
+    if (subNode.classList && !subNode.classList.contains('ph-sub')) subNode.classList.add('ph-sub');
+  }
   return el('div', { className: 'page-head' }, [
     el('div', {}, [
       el('div', { className: 'ph-title', text: title }),
-      sub ? el('div', { className: 'ph-sub num', text: sub }) : null,
+      subNode,
     ].filter(Boolean)),
     actionLabel ? el('button', { className: 'ph-action', text: actionLabel, onClick: onAction }) : null,
   ].filter(Boolean));
@@ -58,11 +91,16 @@ export function progress(ratio, { over = false, thin = false } = {}) {
   ]);
 }
 
-/** Label · value line for quiet stat lists. tone: 'down'|'up'|'flat'|null. */
+/** Label · value line for quiet stat lists. value may be a string or a Node.
+ * tone: 'down'|'up'|'flat'|null. */
 export function statLine(label, value, { tone = null } = {}) {
+  const valueNode = (value && typeof value === 'object' && value.nodeType)
+    ? value
+    : el('span', { className: `sl-value num${tone ? ` delta ${tone}` : ''}`, text: value });
+  if (valueNode.classList && !valueNode.classList.contains('sl-value')) valueNode.classList.add('sl-value');
   return el('div', { className: 'statline' }, [
     el('span', { className: 'sl-label', text: label }),
-    el('span', { className: `sl-value num${tone ? ` delta ${tone}` : ''}`, text: value }),
+    valueNode,
   ]);
 }
 

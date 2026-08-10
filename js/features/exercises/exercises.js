@@ -46,8 +46,9 @@ export function renderExercises(root, ctx = {}) {
       return el('div', { className: 'list' }, rows.map((x) => el('div', { className: 'row' }, [
         el('button', { className: 'row-label', style: { background: 'none', border: 'none', textAlign: 'start' }, onClick: () => navigate('exercise', x.id) }, [
           el('div', { text: x.name }),
+          x.nameEn ? el('div', { className: 'pk-en numeric-ltr', text: x.nameEn }) : null,
           el('div', { className: 'sub', text: [x.muscleGroup, x.equipment, x.defaultUnit?.toUpperCase()].filter(Boolean).join(' · ') || '—' }),
-        ]),
+        ].filter(Boolean)),
         editing
           ? el('div', { className: 'row-actions' }, mode === 'active'
             ? [el('button', { className: 'link-btn', text: 'أرشفة', onClick: async () => { await archiveExercise(x.id); toast('تمت الأرشفة'); } })]

@@ -15,10 +15,11 @@
   --text-2:        #565659;   /* secondary */
   --text-3:        #86868b;   /* metadata / captions */
 
-  /* One restrained accent (calm blue). Used only for actions & the active tab. */
-  --accent:        #0a84c4;
-  --accent-press:  #0b6fa3;
-  --accent-soft:   #e8f3f9;
+  /* One restrained accent (muted slate-blue, not bright corporate blue).
+     Used only for actions, the active tab, selected states, progress, links. */
+  --accent:        #4a6d93;
+  --accent-press:  #3c5a7b;
+  --accent-soft:   #eef2f7;
 
   /* Semantic (factual, non-celebratory). Kept muted per spec. */
   --pos:           #1f8a52;   /* neutral "down/toward goal" */
@@ -73,4 +74,28 @@
   --region-off:   #e9e9ee;                 /* muscle map: inactive fill */
   --region-2:     color-mix(in srgb, var(--accent) 22%, #dfe6ea); /* secondary emphasis */
   --region-1:     var(--accent);           /* primary emphasis */
+}
+
+/* ── Spec-named token aliases (v0.9.0 RTL/design polish) ──────────────
+   The spec references a canonical token vocabulary. These alias the existing
+   tokens so both names resolve to the same value — no visual change, no
+   duplication of truth. Prefer these names in new CSS. */
+:root {
+  --background:        var(--bg);
+  --surface-secondary: var(--surface-2);
+  --separator:         var(--hairline);
+  --text-primary:      var(--text);
+  --text-secondary:    var(--text-2);
+  --text-tertiary:     var(--text-3);
+  --success:           var(--pos);
+  --danger:            var(--neg);
+
+  /* Spacing aliases (same 4/8/12/16/20/24/32 scale) */
+  --space-1: var(--s-1); --space-2: var(--s-2); --space-3: var(--s-3);
+  --space-4: var(--s-4); --space-5: var(--s-5); --space-6: var(--s-6);
+  --space-7: var(--s-7);
+
+  /* Radius aliases */
+  --radius-1: var(--r-1); --radius-2: var(--r-2); --radius-3: var(--r-3);
+  --radius-pill: var(--r-pill);
 }

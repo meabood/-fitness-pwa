@@ -15,7 +15,7 @@ import { weightSeries, rangeDays } from '../../domain/statsData.js';
 import { lineChart, legend } from '../../core/svgChart.js';
 import { formatWeight, formatDelta } from '../../core/num.js';
 import { todayLocal, addDays, formatArabicDate, formatArabicDateShort } from '../../core/dates.js';
-import { pageHead, hero, statLine, chips } from '../../core/ui.js';
+import { pageHead, hero, statLine, chips, numericLTR } from '../../core/ui.js';
 import { openAddSheet, openDaySheet } from './weightSheets.js';
 
 const RANGES = [
@@ -152,8 +152,8 @@ export function renderWeight(root, ctx = {}) {
       el('div', { className: 'section-head' }, [el('h2', { text: 'المراحل' })]),
       el('div', { className: 'timeline' }, items.map((it) => el('div', { className: `tl-item${it.done ? ' done' : ''}` }, [
         el('span', { className: 'tl-dot' }),
-        el('span', { className: 'tl-w num', text: `${formatWeight(it.w)} كجم${it.final ? ' • الهدف' : ''}` }),
-        el('span', { className: 'tl-meta num', text: it.done ? 'تحقّقت' : (it.date ? formatArabicDateShort(it.date) : '') }),
+        numericLTR(`${formatWeight(it.w)} كجم${it.final ? ' • الهدف' : ''}`),
+        it.done ? el('span', { className: 'tl-meta', text: 'تحقّقت' }) : el('span', { className: 'tl-meta' }, [it.date ? numericLTR(formatArabicDateShort(it.date)) : null].filter(Boolean)),
       ]))),
     ]);
   }
@@ -177,12 +177,12 @@ export function renderWeight(root, ctx = {}) {
       }
       return el('button', { className: 'row', onClick: () => openDaySheet({ localDate: entry.localDate, afterChange }) }, [
         el('div', { className: 'row-label' }, [
-          el('div', { className: 'num', text: formatArabicDate(entry.localDate) }),
+          numericLTR(formatArabicDate(entry.localDate)),
           tags.length ? el('div', { className: 'wrap-tags', style: { marginTop: '2px' } }, tags) : null,
           entry.note ? el('div', { className: 'sub', text: entry.note }) : null,
         ].filter(Boolean)),
         el('div', { style: { textAlign: 'end' } }, [
-          el('div', { className: 'hist-weight num', text: `${formatWeight(entry.weightKg)} كجم` }),
+          el('span', { className: 'hist-weight numeric-ltr', text: `${formatWeight(entry.weightKg)} كجم` }),
           delta != null ? el('div', { className: `delta ${delta < 0 ? 'down' : delta > 0 ? 'up' : 'flat'} num`, text: `${formatDelta(delta)}` }) : null,
         ].filter(Boolean)),
       ]);

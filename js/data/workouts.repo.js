@@ -88,6 +88,24 @@ export async function getRecentSessions(limit = 20) {
   return all.slice(0, limit);
 }
 
+/** Distinct exercise ids used most recently (from recent sessions' sets),
+ * most-recent first. Used by the picker to surface "الأخيرة". Factual only —
+ * empty when there is no workout history yet. */
+export async function getRecentExerciseIds(limit = 12) {
+  const sessions = await getRecentSessions(30);
+  const seen = new Set();
+  const out = [];
+  for (const s of sessions) {
+    const sets = await getSetsForSession(s.id);
+    sets.sort((a, b) => (a.order || 0) - (b.order || 0));
+    for (const set of sets) {
+      if (!seen.has(set.exerciseId)) { seen.add(set.exerciseId); out.push(set.exerciseId); }
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
+
 /** Append an exercise to a session's planned list (ad-hoc add during logging). */
 export async function addExerciseToSession(sessionId, exerciseId) {
   const s = await get(SESSIONS, sessionId); if (!s) return;

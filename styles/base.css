@@ -18,12 +18,30 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* Numbers should read cleanly and align regardless of surrounding RTL text. */
+/* ── Mixed-direction numeric content (highest-priority RTL correctness) ──
+   Two primitives, used deliberately:
+
+   .num — isolates a numeric cluster from surrounding bidi WITHOUT forcing the
+   whole element to LTR. It keeps the inherited (RTL) base direction, so a
+   label-led phrase like "متبقي 11.7 كجم" or "متوسط 7 أيام: 105.7 كجم" reads
+   correctly (Arabic stays RTL; the number is a stable weak-LTR run inside).
+   Forcing direction:ltr here (the previous bug) reversed the Arabic reading
+   order of any mixed phrase.
+
+   .numeric-ltr — for a PURE, number-led cluster that must read left-to-right
+   internally regardless of context: ranges, arrows, slashes, value+unit.
+   e.g. "55 / 130 جم", "550 / 2,235", "106 → 94 كجم", "1,685 سعرة", "10 Aug 2026". */
 .num, .metric, [data-num] {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+  unicode-bidi: isolate;              /* isolate from neighbours; keep base dir */
+}
+.numeric-ltr {
   direction: ltr;
   unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  white-space: nowrap;                /* never wrap a numeric expression */
 }
 
 h1, h2, h3, p { margin: 0; }

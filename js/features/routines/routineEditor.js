@@ -14,7 +14,7 @@ import { getAllExercises } from '../../data/exercises.repo.js';
 import { openExercisePicker } from '../exercises/exercisePicker.js';
 import { regionsForExercises } from '../../domain/muscleMap.js';
 import { bodyMap } from '../../core/bodyMap.js';
-import { pageHead } from '../../core/ui.js';
+import { pageHead, reorderControl } from '../../core/ui.js';
 import { openSheet } from '../../core/sheet.js';
 
 export function renderRoutineEditor(root, ctx = {}) {
@@ -56,53 +56,46 @@ export function renderRoutineEditor(root, ctx = {}) {
     ].filter(Boolean)));
 
     function dayCard({ day, exercises }, idx, total) {
-      const dName = el('input', { className: 'input grow', type: 'text', value: day.name });
+      const dName = el('input', { className: 'input', type: 'text', value: day.name, attrs: { 'aria-label': 'اسم اليوم' } });
       dName.addEventListener('change', () => renameDay(day.id, dName.value));
       const exs = exercises.map((rx) => { const ex = exById.get(rx.exerciseId); return ex ? { muscleGroup: ex.muscleGroup, name: ex.name } : {}; });
       const regions = regionsForExercises(exs);
 
-      return el('section', { className: 'section' }, [
-        el('div', { className: 'entry' }, [
-          dName,
-          el('div', { className: 'stepper' }, [
-            el('button', { attrs: { 'aria-label': 'أعلى' }, text: '▲', onClick: () => moveDay(routine.id, day.id, 'up') }),
-            el('button', { attrs: { 'aria-label': 'أسفل' }, text: '▼', onClick: () => moveDay(routine.id, day.id, 'down') }),
+      return el('section', { className: 'day-card' }, [
+        el('div', { className: 'day-head' }, [
+          el('div', { className: 'grow' }, [
+            dName,
+            el('div', { className: 'day-meta', text: `${exercises.length} تمارين` }),
           ]),
+          reorderControl({ onUp: () => moveDay(routine.id, day.id, 'up'), onDown: () => moveDay(routine.id, day.id, 'down'), labelUp: 'تحريك اليوم لأعلى', labelDown: 'تحريك اليوم لأسفل' }),
         ]),
         (regions.primary.size || regions.secondary.size)
           ? el('div', { style: { marginTop: 'var(--s-3)' } }, [bodyMap(regions, { legend: true })])
           : null,
         exercises.length
-          ? el('div', { className: 'list', style: { marginTop: 'var(--s-3)' } }, exercises.map((rx) => exRow(day, rx)))
-          : el('div', { className: 'notice', style: { marginTop: 'var(--s-3)' }, text: 'لا توجد تمارين في هذا اليوم.' }),
-        el('div', { className: 'wrap-tags', style: { marginTop: 'var(--s-3)' } }, [
-          el('button', { className: 'chip', text: '+ تمرين', onClick: () => openExercisePicker({ onPick: (x) => addExerciseToDay(day.id, x.id) }) }),
-          el('button', { className: 'chip', text: 'نسخ اليوم', onClick: () => duplicateDay(day.id) }),
-          el('button', { className: 'chip', text: 'حذف اليوم', onClick: () => deleteDay(day.id) }),
+          ? el('div', { style: { marginTop: 'var(--s-3)' } }, exercises.map((rx) => exRow(day, rx)))
+          : el('div', { className: 'empty-state', style: { padding: 'var(--s-4)' } }, [el('span', { className: 'muted', text: 'لا توجد تمارين في هذا اليوم.' })]),
+        el('div', { className: 'day-actions' }, [
+          el('button', { className: 'btn btn-primary btn-sm', text: '+ تمرين', onClick: () => openExercisePicker({ onPick: (x) => addExerciseToDay(day.id, x.id) }) }),
+          el('button', { className: 'btn btn-tertiary btn-sm', text: 'نسخ اليوم', onClick: () => duplicateDay(day.id) }),
+          el('span', { className: 'spacer' }),
+          el('button', { className: 'btn btn-tertiary danger btn-sm', text: 'حذف اليوم', onClick: () => deleteDay(day.id) }),
         ]),
       ].filter(Boolean));
     }
 
     function exRow(day, rx) {
-      const hasNote = !!rx.note;
-      return el('div', { className: 'row', style: { display: 'block' } }, [
-        el('div', { className: 'row-inline' }, [
-          el('div', { className: 'row-label grow', text: exName.get(rx.exerciseId) || 'تمرين (محذوف)' }),
-          el('div', { className: 'row-actions' }, [
-            el('button', { className: 'link-btn', attrs: { 'aria-label': 'أعلى' }, text: '▲', onClick: () => moveRoutineExercise(day.id, rx.id, 'up') }),
-            el('button', { className: 'link-btn', attrs: { 'aria-label': 'أسفل' }, text: '▼', onClick: () => moveRoutineExercise(day.id, rx.id, 'down') }),
-            el('button', { className: 'link-btn', text: 'استبدال', onClick: () => openExercisePicker({ onPick: (x) => replaceRoutineExercise(rx.id, x.id) }) }),
-            el('button', { className: 'link-btn danger', text: 'إزالة', onClick: () => removeRoutineExercise(rx.id) }),
-          ]),
-        ]),
-        noteEditor(rx, hasNote),
-      ]);
-    }
-
-    function noteEditor(rx, hasNote) {
-      const noteIn = el('input', { className: 'input', type: 'text', value: rx.note || '', placeholder: 'ملاحظة خاصة بالبرنامج (اختياري)' });
+      const noteIn = el('input', { className: 'input input-sm', type: 'text', value: rx.note || '', placeholder: 'ملاحظة (اختياري)', attrs: { 'aria-label': 'ملاحظة التمرين' } });
       noteIn.addEventListener('change', () => setRoutineExerciseNote(rx.id, noteIn.value));
-      return el('div', { style: { marginTop: 'var(--s-2)' } }, [noteIn]);
+      return el('div', { className: 'ex-line' }, [
+        reorderControl({ onUp: () => moveRoutineExercise(day.id, rx.id, 'up'), onDown: () => moveRoutineExercise(day.id, rx.id, 'down'), labelUp: 'تحريك التمرين لأعلى', labelDown: 'تحريك التمرين لأسفل' }),
+        el('div', { className: 'ex-nm' }, [
+          el('div', { className: 'ex-nm-title', text: exName.get(rx.exerciseId) || 'تمرين (محذوف)' }),
+          noteIn,
+        ]),
+        el('button', { className: 'link-btn', text: 'استبدال', onClick: () => openExercisePicker({ onPick: (x) => replaceRoutineExercise(rx.id, x.id) }) }),
+        el('button', { className: 'link-btn danger', text: 'إزالة', onClick: () => removeRoutineExercise(rx.id) }),
+      ]);
     }
 
     function openRoutineSettings(routine) {

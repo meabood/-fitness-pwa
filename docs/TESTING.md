@@ -338,6 +338,25 @@ Nutrition/Exercise statistics with sparse-data guards; export a backup;
 understand Replace vs Merge; navigate Settings. Honest empty/unknown/unlogged
 states throughout (unknown protein ≠ 0; unlogged day ≠ logged zero).
 
+## Starter library + fast routine flow (v0.10.0) — acceptance
+
+- **Seeding (14 checks):** seeds full library into a fresh DB; re-running creates
+  0 duplicates; id-existence guard prevents dups even if the version flag is
+  cleared; existing custom exercises and their objects are untouched; a built-in
+  with a matching name is a SEPARATE identity (no merge); workoutSet exercise ids
+  stay linked; ids are stable/deterministic; search matches EN + AR + alias;
+  broad muscle/equipment filters return correct results; every built-in maps to a
+  region; unknown muscle text → null (no invented anatomy); picker onPick surfaces
+  the permanent id.
+- **Real seed code + wiring (6 checks):** the repo seed skips existing ids, never
+  deletes, records the version flag, short-circuits when already seeded; search
+  covers EN + aliases; app.js seeds after `openDB`, before first render.
+- **Regression intact:** full Stage 1–10 suite (14 assertions) still passes; RTL
+  numeric isolation, restrained accent, safe-area, offline/precache all preserved.
+- **Precache:** SW list matches the reachable graph (52 modules, 62 assets);
+  `builtinExercises.js` precached. No external deps/network; CSP unchanged; SW
+  never touches IndexedDB.
+
 ## Stage completion rule (every stage)
 
 Never reset IndexedDB. Preserve prior data. Add migrations only when the schema

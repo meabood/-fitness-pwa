@@ -338,3 +338,104 @@ svg { max-width: 100%; }
 .grow { flex:1; }
 .wrap-tags { display:flex; gap:var(--s-2); flex-wrap:wrap; }
 .muted-sm { color:var(--text-3); font-size:var(--t-xs); }
+
+/* ══════════════════════════════════════════════════════════════════
+   RTL / DESIGN POLISH (v0.9.0)
+   Numeric ordering correctness, restrained accent, spec-named aliases.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Hero metric reads number-led (value left, unit right), like a health app.
+   .cap (Arabic caption) stays RTL above it. */
+.hero .val { direction: ltr; justify-content: flex-start; }
+[dir="rtl"] .hero { text-align: right; }
+
+/* Value+unit inline cluster: number dominant, unit smaller & secondary. */
+.metric-value { font-weight: var(--w-semibold); letter-spacing: -0.01em; }
+.metric-unit  { color: var(--text-2); font-size: 0.72em; margin-inline-start: 3px; font-weight: var(--w-medium); }
+
+/* Progress: fill always grows from the start edge consistently (never reversed
+   by RTL inheritance). Thin, subtle track, restrained accent, rounded. */
+.progress { direction: ltr; }
+
+/* Milestone timeline dot uses logical inset already; ensure line is on the
+   inline-start (right in RTL) and content flows correctly. */
+
+/* ── Spec-named component aliases → existing primitives (no visual change) ──
+   Lets new/edited markup use the canonical vocabulary from the spec while all
+   existing class names keep working. */
+.card            { background: var(--surface); border: 1px solid var(--separator); border-radius: var(--r-3); padding: var(--s-4); }
+.section-header  { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); margin-bottom: var(--s-2); }
+.section-header h2 { font-size: var(--t-lg); font-weight: var(--w-semibold); letter-spacing: -0.01em; }
+.page-header     { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-3); margin-bottom: var(--s-2); }
+.segmented-control { display: flex; background: var(--surface-2); border-radius: var(--r-2); padding: 3px; gap: 2px; }
+.empty-state     { text-align: center; padding: var(--s-6) var(--s-4); color: var(--text-2); }
+.list-row        { display: flex; align-items: center; gap: var(--s-3); min-height: var(--tap); padding: var(--s-3) var(--s-4); }
+
+/* Restrained accent audit: links/tertiary text actions use accent but never
+   heavy weight; selected chips/segments use accent-soft, not full accent. */
+.link-btn, .sec-action, .ph-action { font-weight: var(--w-medium); }
+
+/* Numeric value cell helper: number-led, unit attached, never wraps. */
+.val-cluster { display: inline-flex; align-items: baseline; gap: 3px; direction: ltr; unicode-bidi: isolate; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.val-cluster .u { color: var(--text-2); font-size: 0.8em; font-weight: var(--w-medium); }
+
+/* Timeline weight label works whether it's .tl-w or an isolated numeric span. */
+.timeline .numeric-ltr { font-weight: var(--w-medium); flex: 1; }
+.tl-item.done .numeric-ltr { color: var(--text); }
+.tl-item .tl-meta { color: var(--text-3); font-size: var(--t-xs); }
+
+/* ── Button hierarchy completion (§12) ── */
+.btn-tertiary { background: transparent; color: var(--accent); border-color: transparent; }
+.btn-tertiary.danger { color: var(--neg); }
+.btn-sm { min-height: 36px; padding: var(--s-2) var(--s-4); font-size: var(--t-sm); border-radius: var(--r-pill); }
+
+/* ── Refined reorder control (§10) — replaces primitive giant triangles ──
+   A compact vertical pill with up/down chevrons; still two real buttons with
+   aria-labels, so move-up/move-down stay accessible. */
+.reorder { display: inline-flex; flex-direction: column; border: 1px solid var(--separator); border-radius: var(--r-1); overflow: hidden; flex: 0 0 auto; }
+.reorder button { width: 34px; height: 26px; display: grid; place-items: center; background: var(--surface); border: none; color: var(--text-2); padding: 0; }
+.reorder button:active { background: var(--surface-2); color: var(--text); }
+.reorder button + button { border-top: 1px solid var(--separator); }
+.reorder svg { width: 16px; height: 16px; }
+
+/* Day card + differentiated day actions (§10) */
+.day-card { background: var(--surface); border: 1px solid var(--separator); border-radius: var(--r-3); padding: var(--s-4); }
+.day-card + .day-card { margin-top: var(--s-3); }
+.day-head { display: flex; align-items: center; gap: var(--s-3); }
+.day-head .input { flex: 1; }
+.day-actions { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-3); flex-wrap: wrap; }
+.day-actions .spacer { flex: 1; }
+
+/* Exercise row inside a day: name grows, refined trailing controls */
+.ex-line { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-2) 0; }
+.ex-line + .ex-line { border-top: 1px solid var(--hairline-2); }
+.ex-line .ex-nm { flex: 1; min-width: 0; }
+
+/* Editor exercise-name column + small input */
+.ex-nm-title { font-weight: var(--w-medium); }
+.input-sm { min-height: 36px; padding: var(--s-2) var(--s-3); font-size: var(--t-sm); margin-top: 4px; }
+
+/* ── Forms polish (§11): native-tinted controls, comfortable targets ── */
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 22px; height: 22px; }
+.toggle-row { min-height: var(--tap); }
+select.input { appearance: none; -webkit-appearance: none; background-image:
+  linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
+  linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position: calc(var(--s-4)) center, calc(var(--s-4) + 5px) center;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-inline-start: var(--s-6); }
+.hint { color: var(--text-3); font-size: var(--t-xs); margin-top: var(--s-1); }
+/* Date/time native inputs align with LTR numerals but stay in RTL layout flow */
+input[type="date"], input[type="time"] { direction: ltr; text-align: start; }
+[dir="rtl"] input[type="date"], [dir="rtl"] input[type="time"] { text-align: right; }
+
+/* ── Exercise picker (fast add flow) ── */
+.picker .picker-list { margin-top: var(--s-2); }
+.pk-head { color: var(--text-3); font-size: var(--t-xs); font-weight: var(--w-medium); margin: var(--s-3) 0 var(--s-1); }
+.picker-row { align-items: center; }
+.pk-ar { font-weight: var(--w-medium); }
+.pk-en { color: var(--text-2); font-size: var(--t-sm); }
+.pk-dot { width: 8px; height: 8px; border-radius: var(--r-pill); background: var(--accent); flex: 0 0 auto; opacity: 0.85; }
+
+/* Day-card meta (exercise count) */
+.day-meta { color: var(--text-3); font-size: var(--t-xs); margin-top: 3px; }
+.day-head .grow { min-width: 0; }

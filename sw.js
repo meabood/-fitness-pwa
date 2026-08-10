@@ -8,7 +8,7 @@
 
 // Bump this string on each release to publish new assets. Old caches keyed by a
 // previous version are removed on activate.
-const CACHE = 'fitness-shell-v0.8.0';
+const CACHE = 'fitness-shell-v0.10.1';
 
 // The app shell: static files required to boot offline.
 const ASSETS = [
@@ -49,6 +49,7 @@ const ASSETS = [
   './js/data/meals.repo.js',
   './js/data/nutrition.repo.js',
   './js/data/exercises.repo.js',
+  './js/data/builtinExercises.js',
   './js/features/nutrition/nutrition.js',
   './js/features/nutrition/nutritionSheets.js',
   './js/features/meals/meals.js',

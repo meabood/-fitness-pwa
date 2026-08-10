@@ -11,7 +11,7 @@ import { computeWeightSummary } from '../../domain/weightAchievements.js';
 import { formatWeight } from '../../core/num.js';
 import { formatArabicDate, formatArabicDateShort } from '../../core/dates.js';
 import { openPlanEditor } from './goalSheets.js';
-import { pageHead, hero, statLine, emptyState } from '../../core/ui.js';
+import { pageHead, hero, statLine, emptyState, numericLTR } from '../../core/ui.js';
 
 const trajectoryText = {
   ahead: (d) => `متقدم بـ ${formatWeight(Math.abs(d))} كجم`,
@@ -38,7 +38,7 @@ export function renderGoals(root) {
     const s = computeWeightSummary(entries, plan, milestones, { toleranceKg: tol });
 
     root.replaceChildren(el('div', { className: 'route-view stack' }, [
-      pageHead(plan.name || 'أهداف الوزن', { sub: `${formatWeight(plan.startWeight)} → ${formatWeight(plan.finalWeight)} كجم` }),
+      pageHead(plan.name || 'أهداف الوزن', { sub: numericLTR(`${formatWeight(plan.startWeight)} → ${formatWeight(plan.finalWeight)} كجم`) }),
       statusPanel(s),
       milestoneTimeline(s),
       el('section', { className: 'section stack' }, [
@@ -56,8 +56,8 @@ export function renderGoals(root) {
     }
     if (s.next) {
       lines.push(statLine(s.next.kind === 'final' ? 'الهدف النهائي' : 'الهدف القادم',
-        `${formatWeight(s.next.targetWeight)} كجم${s.next.remainingKg != null ? ` • متبقٍ ${formatWeight(s.next.remainingKg)}` : ''}`));
-      if (s.next.targetDate) lines.push(statLine('التاريخ المستهدف', formatArabicDate(s.next.targetDate)));
+        numericLTR(`${formatWeight(s.next.targetWeight)} كجم${s.next.remainingKg != null ? ` • متبقٍ ${formatWeight(s.next.remainingKg)}` : ''}`)));
+      if (s.next.targetDate) lines.push(statLine('التاريخ المستهدف', numericLTR(formatArabicDate(s.next.targetDate))));
     } else if (s.finalStatus?.reached) {
       lines.push(statLine('الحالة', 'تم الوصول إلى الهدف'));
     }
@@ -85,8 +85,8 @@ export function renderGoals(root) {
       ]),
       el('div', { className: 'timeline' }, items.map((it) => el('div', { className: `tl-item${it.done ? ' done' : ''}` }, [
         el('span', { className: 'tl-dot' }),
-        el('span', { className: 'tl-w num', text: `${formatWeight(it.w)} كجم${it.final ? ' • الهدف' : (it.label ? ' • ' + it.label : '')}` }),
-        el('span', { className: 'tl-meta num', text: it.done ? `تحقّق ${formatArabicDateShort(it.date)}` : (it.date ? formatArabicDateShort(it.date) : '') }),
+        numericLTR(`${formatWeight(it.w)} كجم${it.final ? ' • الهدف' : (it.label ? ' • ' + it.label : '')}`),
+        el('span', { className: 'tl-meta', text: it.done ? `تحقّق ${formatArabicDateShort(it.date)}` : (it.date ? formatArabicDateShort(it.date) : '') }),
       ]))),
     ]);
   }
