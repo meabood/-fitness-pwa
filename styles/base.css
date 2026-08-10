@@ -1,0 +1,139 @@
+/* base.css — reset, RTL scaffolding, app-shell layout primitives. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--t-md);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* RTL is set on <html dir="rtl" lang="ar"> in index.html */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Numbers should read cleanly and align regardless of surrounding RTL text. */
+.num, .metric, [data-num] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+h1, h2, h3, p { margin: 0; }
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* ---- App shell layout ---- */
+
+#app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: calc(var(--safe-top) + var(--s-3)) var(--s-4) var(--s-3);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(12px);
+  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  border-bottom: 1px solid var(--hairline);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.app-header h1 {
+  font-size: var(--t-lg);
+  font-weight: var(--w-semibold);
+  letter-spacing: -0.01em;
+}
+
+.header-btn {
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-pill);
+  color: var(--text-2);
+}
+.header-btn:active { background: var(--surface-2); }
+
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: var(--s-5) var(--s-4) calc(var(--nav-h) + var(--safe-bottom) + var(--s-6));
+}
+
+/* ---- Bottom navigation ---- */
+
+.app-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 20;
+  height: calc(var(--nav-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  display: flex;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-top: 1px solid var(--hairline);
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-size: var(--t-xs);
+  padding: var(--s-1) 0;
+  transition: color var(--dur) var(--ease);
+}
+.nav-item svg { width: 24px; height: 24px; }
+.nav-item[aria-current="page"] { color: var(--accent); }
+.nav-item:active { color: var(--accent-press); }
+
+/* Page-enter: brief, functional. */
+.route-view { animation: fade var(--dur) var(--ease); }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ── Header three-slot layout (lead · title · trail) for v0.8.0 ── */
+.app-header { justify-content: flex-start; }
+.app-header .header-lead, .app-header .header-trail { flex: 0 0 auto; display: flex; align-items: center; }
+.app-header h1 { flex: 1; text-align: center; font-size: var(--t-md); font-weight: var(--w-semibold); }
+/* The chevron glyph points right (▶), which is the correct "back" direction in RTL. */
