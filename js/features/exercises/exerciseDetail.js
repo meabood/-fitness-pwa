@@ -15,9 +15,7 @@ import { lineChart } from '../../core/svgChart.js';
 import { formatWeight } from '../../core/num.js';
 import { formatArabicDate, formatArabicDateShort } from '../../core/dates.js';
 import { openExerciseEditor } from './exerciseSheets.js';
-import { pageHead, hero, statLine, emptyState } from '../../core/ui.js';
-import { bodyMap } from '../../core/bodyMap.js';
-import { groupToRegion } from '../../domain/muscleMap.js';
+import { pageHead, hero, statLine, emptyState, exerciseTitle } from '../../core/ui.js';
 import { openSheet } from '../../core/sheet.js';
 
 export function renderExerciseDetail(root, ctx = {}) {
@@ -40,15 +38,14 @@ export function renderExerciseDetail(root, ctx = {}) {
     const bestReps = bestRepsByWeightList(sets);
     const last = lastPerformance(sets, {});
 
-    const meta = [x.muscleGroup, x.equipment].filter(Boolean).join(' · ') || 'بدون تصنيف';
-    const region = groupToRegion(x.muscleGroup) || groupToRegion(x.name);
-    const regionView = region
-      ? el('div', { className: 'panel' }, [bodyMap({ primary: new Set([region]), secondary: new Set() }, { legend: true })])
+    const metaBits = [x.muscleGroup, x.equipment].filter(Boolean);
+    const metaChips = metaBits.length
+      ? el('div', { className: 'meta-chips' }, metaBits.map((m) => el('span', { className: 'meta-chip', text: m })))
       : null;
 
     root.replaceChildren(el('div', { className: 'route-view stack' }, [
-      pageHead(x.name, { sub: x.nameEn || meta, actionLabel: 'تعديل', onAction: () => openExerciseEditor({ exercise: x, afterChange: draw }) }),
-      regionView,
+      pageHead(exerciseTitle(x), { actionLabel: 'تعديل', onAction: () => openExerciseEditor({ exercise: x, afterChange: draw }) }),
+      metaChips,
       bestPanel(maxWeightByUnit, last),
       chartPanel(sets),
       bestRepsPanel(bestReps),
@@ -167,7 +164,7 @@ export function renderExerciseDetail(root, ctx = {}) {
           ? el('button', { className: 'btn btn-ghost btn-block', text: 'استعادة', onClick: async () => { await restoreExercise(x.id); toast('تمت الاستعادة'); handle.close(); } })
           : el('button', { className: 'btn btn-danger btn-block', text: 'أرشفة', onClick: async () => { await archiveExercise(x.id); toast('تمت الأرشفة'); handle.close(); } }),
       ]);
-      const handle = openSheet({ title: x.name, body });
+      const handle = openSheet({ title: exerciseTitle(x), body });
     }
   }
 

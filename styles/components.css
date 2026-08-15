@@ -439,3 +439,96 @@ input[type="date"], input[type="time"] { direction: ltr; text-align: start; }
 /* Day-card meta (exercise count) */
 .day-meta { color: var(--text-3); font-size: var(--t-xs); margin-top: 3px; }
 .day-head .grow { min-width: 0; }
+
+/* ══════════════════════════════════════════════════════════════════
+   REDESIGN (v0.11.0): tinted icon chips, dashboard cards, English names
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Tinted icon container — small icon on a soft domain-colored square. */
+.icon-chip { width: 44px; height: 44px; border-radius: var(--r-2); display: grid; place-items: center; flex: 0 0 auto; }
+.icon-chip svg { width: 24px; height: 24px; }
+.icon-chip.weight    { background: var(--weight-soft);    color: var(--weight); }
+.icon-chip.nutrition { background: var(--nutrition-soft); color: var(--nutrition); }
+.icon-chip.workout   { background: var(--workout-soft);   color: var(--workout); }
+.icon-chip.primary   { background: var(--primary-soft);   color: var(--primary); }
+.icon-chip.star      { background: var(--star-soft);      color: var(--star); }
+
+/* Dashboard card: soft surface, compact, consistent. */
+.dcard { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-3); padding: var(--s-4); }
+.dcard.tint-nutrition { background: color-mix(in srgb, var(--nutrition-soft) 55%, #fff); border-color: color-mix(in srgb, var(--nutrition) 12%, var(--hairline)); }
+.dcard.tint-workout   { background: color-mix(in srgb, var(--workout-soft) 45%, #fff); border-color: color-mix(in srgb, var(--workout) 10%, var(--hairline)); }
+.dcard-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); margin-bottom: var(--s-3); }
+.dcard-head .t { color: var(--text-2); font-size: var(--t-sm); font-weight: var(--w-medium); }
+
+/* Two-column dashboard grid (weight | goal, nutrition | workout) */
+.dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+.dgrid > * { min-width: 0; }
+@media (max-width: 360px) { .dgrid { grid-template-columns: 1fr; } }
+
+/* Progress fills by domain */
+.progress.nutrition > i { background: var(--nutrition); }
+.progress.weight > i,
+.progress.protein > i { background: var(--weight); }
+
+/* English exercise title (LTR, never RTL-reordered, wraps gracefully) */
+.ex-title { direction: ltr; unicode-bidi: isolate; text-align: start; font-weight: var(--w-medium); overflow-wrap: anywhere; }
+[dir="rtl"] .ex-title { text-align: right; }
+
+/* Muscle/equipment metadata chips (text only — replaces muscle diagram) */
+.meta-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.meta-chip { background: var(--surface-2); color: var(--text-2); border-radius: var(--r-pill); padding: 3px var(--s-3); font-size: var(--t-xs); }
+
+/* Home goal mini-timeline (dots) */
+.goaldots { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
+.goaldots .gd { display: flex; flex-direction: column; align-items: center; gap: var(--s-1); flex: 1; min-width: 0; }
+.goaldots .gd .dot { width: 16px; height: 16px; border-radius: var(--r-pill); background: var(--surface); border: 2px solid var(--hairline); display: grid; place-items: center; }
+.goaldots .gd.done .dot { background: var(--weight); border-color: var(--weight); color: #fff; }
+.goaldots .gd.current .dot { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
+.goaldots .seg { height: 2px; background: var(--hairline); flex: 1; }
+.goaldots .seg.done { background: var(--weight); }
+.gd .gw { font-size: var(--t-xs); font-weight: var(--w-medium); }
+.gd .gu { font-size: 10px; color: var(--text-3); }
+
+/* Workout up-timer + rest timer */
+.wtimer { font-variant-numeric: tabular-nums; font-weight: var(--w-semibold); font-size: var(--t-lg); direction: ltr; unicode-bidi: isolate; }
+.resttimer { position: sticky; bottom: calc(var(--nav-h) + var(--safe-bottom) + var(--s-2)); z-index: 5;
+  background: var(--workout); color: #fff; border-radius: var(--r-2); padding: var(--s-2) var(--s-3);
+  display: flex; align-items: center; gap: var(--s-3); box-shadow: var(--shadow-lift); }
+.resttimer .rt-time { font-variant-numeric: tabular-nums; font-weight: var(--w-semibold); direction: ltr; }
+.resttimer button { background: rgba(255,255,255,0.18); color: #fff; border: none; border-radius: var(--r-1); min-height: 34px; padding: 0 var(--s-3); font-size: var(--t-sm); }
+
+/* Active set grid */
+.setgrid { width: 100%; }
+.setgrid .sg-head, .setgrid .sg-row { display: grid; grid-template-columns: 34px 1fr 1fr 1fr 40px; gap: var(--s-2); align-items: center; }
+.setgrid .sg-head { color: var(--text-3); font-size: var(--t-xs); padding: var(--s-1) 0; }
+.setgrid .sg-row { padding: var(--s-1) 0; }
+.setgrid .sg-row .cell-in { min-height: 40px; text-align: center; }
+.setgrid .prevcell { color: var(--text-3); font-size: var(--t-sm); direction: ltr; unicode-bidi: isolate; text-align: center; }
+.setcheck { width: 34px; height: 34px; border-radius: var(--r-1); border: 1.5px solid var(--hairline); background: var(--surface); display: grid; place-items: center; color: var(--text-3); }
+.setcheck.on { background: var(--weight); border-color: var(--weight); color: #fff; }
+.sg-row.done .cell-in { color: var(--text-2); }
+
+/* Selection rows (start flow) */
+.pickrow { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); width: 100%; padding: var(--s-4); background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--r-2); text-align: start; }
+.pickrow + .pickrow { margin-top: var(--s-2); }
+.pickrow:active { background: var(--surface-2); }
+.pickrow .pr-sub { color: var(--text-3); font-size: var(--t-sm); margin-top: 2px; direction: ltr; unicode-bidi: isolate; text-align: start; }
+[dir="rtl"] .pickrow .pr-sub { text-align: right; }
+
+/* Warm-up toggle (active set add row) */
+.warm-toggle { background: var(--surface-2); color: var(--text-3); border: none; border-radius: var(--r-pill); min-height: 30px; padding: 0 var(--s-3); font-size: var(--t-xs); }
+.warm-toggle.on { background: var(--nutrition-soft); color: var(--nutrition); }
+.setgrid .input.cell-in { padding: var(--s-2); }
+.resttimer .grow { flex: 1; }
+
+/* Finish summary */
+.sum-grid { display: flex; gap: var(--s-3); }
+.sum-stat { flex: 1; background: var(--surface-2); border-radius: var(--r-2); padding: var(--s-3); text-align: center; }
+
+/* Active-workout per-exercise menu button (⋯) — quiet, secondary */
+.ex-menu-btn { flex: 0 0 auto; width: 36px; height: 36px; display: grid; place-items: center; background: transparent; border: none; border-radius: var(--r-1); color: var(--text-3); }
+.ex-menu-btn:active { background: var(--surface-2); color: var(--text); }
+
+/* Routine-editor rest chip — tertiary, tappable */
+.rest-chip { border: 1px solid var(--hairline); cursor: pointer; }
+.rest-chip:active { background: var(--surface-2); }

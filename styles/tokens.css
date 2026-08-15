@@ -99,3 +99,25 @@
   --radius-1: var(--r-1); --radius-2: var(--r-2); --radius-3: var(--r-3);
   --radius-pill: var(--r-pill);
 }
+
+/* ── Semantic domain colors (v0.11.0 redesign) ───────────────────────
+   Used sparingly: icons, tinted icon chips, progress fills, status text,
+   selected controls. Never whole-screen washes. */
+:root {
+  --primary:        var(--accent);          /* interaction / primary action */
+  --primary-soft:   var(--accent-soft);
+
+  --weight:         #2f7d3b;                 /* weight / progress / success */
+  --weight-soft:    #e9f4ec;
+
+  --nutrition:      #c9821f;                 /* nutrition — warm amber */
+  --nutrition-soft: #fbf2e4;
+
+  --workout:        #4257b2;                 /* training — indigo/blue */
+  --workout-soft:   #eceffb;
+
+  --warn:           #b1503a;                 /* behind-plan / destructive */
+  --warn-soft:      #f7ece9;
+
+  --star-soft:      #f3eede;
+}

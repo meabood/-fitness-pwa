@@ -7,7 +7,7 @@ import { el, toast } from '../../core/dom.js';
 import { on } from '../../core/events.js';
 import { queryExercises, getArchivedExercises, getFacets, archiveExercise, restoreExercise } from '../../data/exercises.repo.js';
 import { openExerciseEditor } from './exerciseSheets.js';
-import { pageHead, segmented, chips, emptyState } from '../../core/ui.js';
+import { pageHead, segmented, chips, emptyState, exerciseTitle } from '../../core/ui.js';
 
 export function renderExercises(root, ctx = {}) {
   const navigate = ctx.navigate || (() => {});
@@ -45,10 +45,9 @@ export function renderExercises(root, ctx = {}) {
     function list(rows) {
       return el('div', { className: 'list' }, rows.map((x) => el('div', { className: 'row' }, [
         el('button', { className: 'row-label', style: { background: 'none', border: 'none', textAlign: 'start' }, onClick: () => navigate('exercise', x.id) }, [
-          el('div', { text: x.name }),
-          x.nameEn ? el('div', { className: 'pk-en numeric-ltr', text: x.nameEn }) : null,
+          el('div', { className: 'ex-title', text: exerciseTitle(x) }),
           el('div', { className: 'sub', text: [x.muscleGroup, x.equipment, x.defaultUnit?.toUpperCase()].filter(Boolean).join(' · ') || '—' }),
-        ].filter(Boolean)),
+        ]),
         editing
           ? el('div', { className: 'row-actions' }, mode === 'active'
             ? [el('button', { className: 'link-btn', text: 'أرشفة', onClick: async () => { await archiveExercise(x.id); toast('تمت الأرشفة'); } })]

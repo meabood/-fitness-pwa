@@ -146,6 +146,21 @@ export async function updateEntry(id, patch) {
   emit('nutrition:changed', {});
 }
 
+/**
+ * Record ONLY the library relationship on a historical entry (its sourceMealId),
+ * without touching any factual snapshot/final/date field. Used after saving a
+ * one-time entry into the Meal Library so it won't be offered for saving again.
+ * Deliberately does NOT go through applyEntryPatch (which would recompute finals).
+ */
+export async function setEntrySource(id, mealId) {
+  const cur = await get(ENTRIES, id);
+  if (!cur) throw new Error('entry not found');
+  cur.sourceMealId = mealId || null;
+  cur.updatedAt = now();
+  await put(ENTRIES, cur);
+  emit('nutrition:changed', { localDate: cur.localDate });
+}
+
 export async function deleteEntry(id) {
   const cur = await get(ENTRIES, id);
   await del(ENTRIES, id);

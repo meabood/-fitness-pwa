@@ -164,7 +164,7 @@ export function renderStats(root, ctx = {}) {
 
   async function exercisePanel() {
     const actives = await getActiveExercises();
-    const pick = el('button', { className: 'btn btn-secondary btn-block', text: exerciseName ? `التمرين: ${exerciseName}` : 'اختر تمرينًا', onClick: () => openExercisePicker({ onPick: (x) => { exerciseId = x.id; exerciseName = x.name; draw(); } }) });
+    const pick = el('button', { className: 'btn btn-secondary btn-block', text: exerciseName ? `التمرين: ${exerciseName}` : 'اختر تمرينًا', onClick: () => openExercisePicker({ onPick: (x) => { exerciseId = x.id; exerciseName = x.nameEn || x.name; draw(); } }) });
     if (!exerciseId) {
       return el('div', { className: 'stack' }, [
         pick,

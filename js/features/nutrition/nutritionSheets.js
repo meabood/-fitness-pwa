@@ -6,7 +6,7 @@ import { el, toast } from '../../core/dom.js';
 import { openSheet } from '../../core/sheet.js';
 import { searchMeals, addMeal } from '../../data/meals.repo.js';
 import {
-  addEntryFromMeal, addOneTimeEntry, updateEntry, deleteEntry, duplicateEntry, copyEntryToDate,
+  addEntryFromMeal, addOneTimeEntry, updateEntry, deleteEntry, duplicateEntry, copyEntryToDate, setEntrySource,
 } from '../../data/nutrition.repo.js';
 import { computeFinals } from '../../domain/nutritionStats.js';
 import { formatInt, formatWeight } from '../../core/num.js';
@@ -165,6 +165,36 @@ export function openEditEntrySheet({ entry, afterChange }) {
   const copyDate = dateIn(entry.localDate);
   const copyBtn = el('button', { className: 'btn btn-secondary', text: 'نسخ إلى تاريخ', onClick: async () => { await copyEntryToDate(entry.id, copyDate.value); toast('تم النسخ'); handle.close(); afterChange && afterChange(); } });
 
+  // Save this historical entry into the Meal Library as a NEW reusable meal.
+  // Uses the entry's immutable per-serving SNAPSHOT (not the editable inputs),
+  // never mutates the entry, and never merges with same-name meals (addMeal
+  // always mints a new id). If the entry already came from a library meal, we
+  // show a quiet confirmation instead of creating a duplicate.
+  let saveToLib;
+  if (entry.sourceMealId) {
+    saveToLib = el('div', { className: 'muted-sm', style: { textAlign: 'center' }, text: 'محفوظة في المكتبة ✓' });
+  } else {
+    saveToLib = el('button', {
+      className: 'btn btn-secondary btn-block', text: 'حفظ في مكتبة الوجبات',
+      onClick: async () => {
+        try {
+          const mealId = await addMeal({
+            name: entry.nameSnapshot,
+            calories: entry.kcalPerServingSnapshot,
+            protein: entry.proteinPerServingSnapshot,   // null stays unknown
+            serving: entry.servingSnapshot,
+          });
+          // Record ONLY the new library relationship on the entry (snapshot-safe),
+          // so it won't be offered for saving again and can't create duplicates.
+          if (mealId) await setEntrySource(entry.id, mealId);
+          toast('أُضيفت إلى المكتبة');
+          saveToLib.replaceWith(el('div', { className: 'muted-sm', style: { textAlign: 'center' }, text: 'محفوظة في المكتبة ✓' }));
+          afterChange && afterChange();
+        } catch (err) { toast((err.errors && err.errors[0]) || 'تعذّرت الإضافة'); }
+      },
+    });
+  }
+
   const del = el('button', {
     className: 'btn btn-danger btn-block', text: 'حذف',
     onClick: async () => {
@@ -180,6 +210,7 @@ export function openEditEntrySheet({ entry, afterChange }) {
     el('div', { style: { marginTop: 'var(--s-4)' } }, [save]),
     el('div', { className: 'quick-add', style: { marginTop: 'var(--s-3)' } }, [dup]),
     el('div', { className: 'quick-add' }, [copyDate, copyBtn]),
+    el('div', { style: { marginTop: 'var(--s-3)' } }, [saveToLib]),
     el('div', { style: { marginTop: 'var(--s-3)' } }, [del]),
   ]);
   const handle = openSheet({ title: 'تعديل الصنف', body });

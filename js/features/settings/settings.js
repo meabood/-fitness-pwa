@@ -17,12 +17,14 @@ import { pageHead, segmented } from '../../core/ui.js';
 export async function renderSettings(root, ctx = {}) {
   const navigate = ctx.navigate || (() => {});
   // Load current values up front.
-  const [calorieTarget, proteinTarget, weightUnit, exerciseUnit, persisted, est] =
+  const [calorieTarget, proteinTarget, weightUnit, exerciseUnit, restBetween, restAfter, persisted, est] =
     await Promise.all([
       getCurrentTarget('calorie'),
       getCurrentTarget('protein'),
       getConfig('defaultWeightUnit'),
       getConfig('defaultExerciseUnit'),
+      getConfig('restBetweenSetsDefault'),
+      getConfig('restAfterExerciseDefault'),
       isPersisted(),
       estimate(),
     ]);
@@ -57,6 +59,20 @@ export async function renderSettings(root, ctx = {}) {
       segmentField({
         label: 'وحدة التمارين الافتراضية', value: exerciseUnit, options: ['kg', 'lb'],
         onChange: async (v) => { await setConfig('defaultExerciseUnit', v); toast('تم الحفظ'); },
+      }),
+    ]),
+
+    // ---- Workout logging (rest defaults) ----
+    section('تسجيل التمرين', [
+      numberField({
+        id: 'restBetween', label: 'راحة بين المجموعات (ثانية)', value: restBetween,
+        placeholder: '90', hint: 'تُستخدم افتراضيًا ما لم يُحدَّد وقت خاص للتمرين في البرنامج.', allowClear: true,
+        onSave: async (v) => { await setConfig('restBetweenSetsDefault', v === null ? null : v); toast('تم الحفظ'); },
+      }),
+      numberField({
+        id: 'restAfter', label: 'راحة بعد التمرين (ثانية)', value: restAfter,
+        placeholder: '120', hint: 'راحة أطول عند الانتقال إلى التمرين التالي.', allowClear: true,
+        onSave: async (v) => { await setConfig('restAfterExerciseDefault', v === null ? null : v); toast('تم الحفظ'); },
       }),
     ]),
 

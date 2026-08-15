@@ -148,6 +148,16 @@ export async function setRoutineExerciseNote(rexId, note) {
   const cur = await get(REXS, rexId); if (!cur) return;
   cur.note = clean(note); await put(REXS, cur); emit('routines:changed', {});
 }
+/** Per-exercise rest config (seconds). null/empty clears an override so the
+ * global workout-logging default applies. Additive per-record fields; no
+ * schema/migration change. */
+export async function setRoutineExerciseRest(rexId, { betweenSets, afterExercise } = {}) {
+  const cur = await get(REXS, rexId); if (!cur) return;
+  const norm = (v) => (v === '' || v == null || !Number.isFinite(Number(v)) || Number(v) < 0) ? null : Math.round(Number(v));
+  if (betweenSets !== undefined) cur.restBetweenSets = norm(betweenSets);
+  if (afterExercise !== undefined) cur.restAfterExercise = norm(afterExercise);
+  await put(REXS, cur); emit('routines:changed', {});
+}
 export async function moveRoutineExercise(dayId, rexId, dir) {
   const rows = await getDayExercises(dayId);
   const i = rows.findIndex((r) => r.id === rexId);

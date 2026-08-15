@@ -40,7 +40,14 @@ async function snapshotPlanned(routineDayId) {
   const planned = [];
   for (const rx of rexs) {
     const ex = await getExercise(rx.exerciseId);
-    planned.push({ exerciseId: rx.exerciseId, nameSnapshot: ex ? ex.name : 'تمرين', note: rx.note || '' });
+    planned.push({
+      exerciseId: rx.exerciseId,
+      nameSnapshot: ex ? ex.name : 'تمرين',
+      note: rx.note || '',
+      // rest overrides captured at start (null → use global default at logging time)
+      restBetweenSets: rx.restBetweenSets ?? null,
+      restAfterExercise: rx.restAfterExercise ?? null,
+    });
   }
   return planned;
 }
@@ -119,6 +126,75 @@ export async function addExerciseToSession(sessionId, exerciseId) {
   }
 }
 
+/** Set the per-exercise note within THIS session (planned-exercise note). Does
+ * not touch historical set snapshots or the routine. */
+export async function setSessionExerciseNote(sessionId, exerciseId, note) {
+  const s = await get(SESSIONS, sessionId); if (!s) return;
+  s.plannedExercises = s.plannedExercises || [];
+  const entry = s.plannedExercises.find((p) => p.exerciseId === exerciseId);
+  if (entry) { entry.note = String(note ?? ''); s.updatedAt = now(); await put(SESSIONS, s); emit('workout:changed', { exerciseId }); }
+}
+
+/** Remove an exercise from THIS session: deletes only this session's sets for it
+ * (other sessions/history untouched) and drops it from the planned list. */
+export async function removeExerciseFromSession(sessionId, exerciseId) {
+  const sets = await getSetsForSessionExercise(sessionId, exerciseId);
+  for (const st of sets) await del(SETS, st.id);
+  const s = await get(SESSIONS, sessionId);
+  if (s) {
+    s.plannedExercises = (s.plannedExercises || []).filter((p) => p.exerciseId !== exerciseId);
+    s.updatedAt = now();
+    await put(SESSIONS, s);
+  }
+  emit('workout:changed', { exerciseId });
+}
+
+/** Swap an exercise for another within THIS session. Any sets already logged for
+ * the old exercise are reassigned to the new one (unit re-snapshotted per set via
+ * updateSet), and the planned entry is replaced (keeping its note). History for
+ * OTHER sessions is untouched; sets keep their ids. */
+export async function swapExerciseInSession(sessionId, oldExerciseId, newExerciseId) {
+  if (oldExerciseId === newExerciseId) return;
+  const sets = await getSetsForSessionExercise(sessionId, oldExerciseId);
+  for (const st of sets) await updateSet(st.id, { exerciseId: newExerciseId });
+  const s = await get(SESSIONS, sessionId);
+  if (s) {
+    s.plannedExercises = s.plannedExercises || [];
+    const newEx = await getExercise(newExerciseId);
+    const idx = s.plannedExercises.findIndex((p) => p.exerciseId === oldExerciseId);
+    const note = idx >= 0 ? s.plannedExercises[idx].note : '';
+    const entry = { exerciseId: newExerciseId, nameSnapshot: newEx ? newEx.name : 'تمرين', note };
+    // avoid duplicate planned entry if the new exercise was already present
+    const existingNewIdx = s.plannedExercises.findIndex((p) => p.exerciseId === newExerciseId);
+    if (idx >= 0) {
+      s.plannedExercises.splice(idx, 1, entry);
+      if (existingNewIdx >= 0 && existingNewIdx !== idx) {
+        s.plannedExercises = s.plannedExercises.filter((p, i) => !(p.exerciseId === newExerciseId && i !== idx));
+      }
+    } else if (existingNewIdx < 0) {
+      s.plannedExercises.push(entry);
+    }
+    s.updatedAt = now();
+    await put(SESSIONS, s);
+  }
+  emit('workout:changed', { exerciseId: newExerciseId });
+}
+
+/** Reorder an exercise within THIS session's planned list (up/down). */
+export async function moveExerciseInSession(sessionId, exerciseId, dir) {
+  const s = await get(SESSIONS, sessionId); if (!s) return;
+  const arr = s.plannedExercises || [];
+  const i = arr.findIndex((p) => p.exerciseId === exerciseId);
+  if (i < 0) return;
+  const j = dir === 'up' ? i - 1 : i + 1;
+  if (j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  s.plannedExercises = arr;
+  s.updatedAt = now();
+  await put(SESSIONS, s);
+  emit('workout:changed', { exerciseId });
+}
+
 export async function setSessionNotes(id, notes) {
   const s = await get(SESSIONS, id); if (!s) return;
   s.notes = clean(notes); s.updatedAt = now();
@@ -127,7 +203,25 @@ export async function setSessionNotes(id, notes) {
 export async function setSessionCompleted(id, completed) {
   const s = await get(SESSIONS, id); if (!s) return;
   s.completed = !!completed; s.endTime = completed ? toLocalTime() : s.endTime; s.updatedAt = now();
+  if (completed) { s.restEndsAt = null; s.restKind = null; } // finishing clears any active rest
   await put(SESSIONS, s); emit('workout:changed', {});
+}
+
+/** Persist the active rest countdown on the session as a TIMESTAMP (+ kind),
+ * so it survives reload / PWA relaunch. Never stores a decrementing value.
+ * Additive optional fields; old sessions without them stay valid. */
+export async function setSessionRest(id, { endsAt, kind }) {
+  const s = await get(SESSIONS, id); if (!s) return;
+  s.restEndsAt = endsAt || null;
+  s.restKind = endsAt ? (kind || 'set') : null;
+  s.updatedAt = now();
+  await put(SESSIONS, s);
+}
+/** Clear persisted rest state (Skip / expiry / finish). */
+export async function clearSessionRest(id) {
+  const s = await get(SESSIONS, id); if (!s || (s.restEndsAt == null && s.restKind == null)) return;
+  s.restEndsAt = null; s.restKind = null; s.updatedAt = now();
+  await put(SESSIONS, s);
 }
 
 /** Update a session; changing localDate cascades to all its sets (transactional). */

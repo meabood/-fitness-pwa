@@ -15,6 +15,7 @@ import { renderWorkout } from './features/workout/workout.js';
 import { renderRoutines } from './features/routines/routines.js';
 import { renderRoutineEditor } from './features/routines/routineEditor.js';
 import { renderSession } from './features/workout/session.js';
+import { renderStartWorkout } from './features/workout/startWorkout.js';
 import { renderExercises } from './features/exercises/exercises.js';
 import { renderExerciseDetail } from './features/exercises/exerciseDetail.js';
 import { renderStats } from './features/stats/stats.js';
@@ -34,6 +35,7 @@ const ROUTES = {
   routines:  { title: 'البرامج',     icon: 'workout',   nav: false, parent: 'workout', render: (root, ctx) => renderRoutines(root, ctx) },
   routine:   { title: 'برنامج',      icon: 'workout',   nav: false, parent: 'routines', render: (root, ctx) => renderRoutineEditor(root, ctx) },
   session:   { title: 'جلسة',        icon: 'workout',   nav: false, parent: 'workout', render: (root, ctx) => renderSession(root, ctx) },
+  start:     { title: 'ابدأ التمرين', icon: 'workout',   nav: false, parent: 'workout', render: (root, ctx) => renderStartWorkout(root, ctx) },
   exercises: { title: 'مكتبة التمارين', icon: 'workout', nav: false, parent: 'workout', render: (root, ctx) => renderExercises(root, ctx) },
   exercise:  { title: 'تمرين',       icon: 'workout',   nav: false, parent: 'exercises', render: (root, ctx) => renderExerciseDetail(root, ctx) },
   stats:     { title: 'الإحصائيات',  icon: 'stats',     nav: true,  render: (root, ctx) => renderStats(root, ctx) },

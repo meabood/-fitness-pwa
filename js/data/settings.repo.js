@@ -18,6 +18,8 @@ const DEFAULTS = {
   defaultWeightUnit: 'kg',    // weigh-ins are kg per spec
   defaultExerciseUnit: 'lb',  // gym default; per-exercise override later
   trajectoryToleranceKg: 0.5, // UI classification band (documented, non-medical)
+  restBetweenSetsDefault: 90, // seconds; per-routine-exercise overrides this
+  restAfterExerciseDefault: 120,
 };
 
 const SUPPORTED_UNITS = ['kg', 'lb'];

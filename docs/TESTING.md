@@ -357,6 +357,53 @@ states throughout (unknown protein ≠ 0; unlogged day ≠ logged zero).
   `builtinExercises.js` precached. No external deps/network; CSP unchanged; SW
   never touches IndexedDB.
 
+## Dashboard redesign + active workout (v0.11.0) — acceptance
+
+Verified (offline, static + pure where DOM/IDB is required):
+- Seeding + full Stage 1–10 regression: 18/18 pure assertions pass; v0.10.1
+  built-in `defaultExerciseUnit`-at-creation behavior intact.
+- 46 structural assertions across the new flows: routine→day→start; up-timer
+  anchored to persisted `session.createdAt` and cleared on unmount; rest timer
+  (90s, +30/skip) starts only after a working set; active session rehydrates from
+  its id and the start flow resumes an existing incomplete session for the same
+  day (no duplicates); previous-performance is reference-only (a set is written
+  only on explicit ✓, never auto-added); finish marks complete and produces a
+  factual summary (counts + real achievements) without deleting/mutating history.
+- English-only display names (built-ins English, custom untouched; seeding never
+  renames); no muscle/body diagram surfaced anywhere (`bodyMap.js` deleted).
+- Home renders only from stored data: achievements gated on real new-low/reached
+  flags and hidden when none; expected weight derived from trajectory; no
+  randomness or fabricated status.
+- RTL/bidi intact: `.num` isolates without forcing whole-element LTR; `.numeric-ltr`
+  present; Home wraps mixed clusters in `numericLTR`.
+- IndexedDB compatibility: no schema/migration change; DB never deleted; active
+  workout/start never clear stores; seeding additive.
+- Precache consistent (52 modules, 62 assets; shell + CSS + manifest cached); SW
+  never references IndexedDB; no external URLs/fonts/CDNs; no `fetch` in app modules.
+
+## Configurable rest + historical meal save (v0.12.0) — acceptance
+
+- Rest settings + persistence (17 checks): global between/after defaults used when
+  no override; per-routine-exercise overrides win; same exercise different rest per
+  routine; cleared global → fallback while explicit 0 is respected; between-set rest
+  on working-set commit; after-exercise rest via the next control; final exercise
+  starts no rest; warm-up does not trigger rest; single countdown; +30; Skip;
+  survives navigation with remaining derived from timestamps; expired never
+  restarts; elapsed up-timer independent of the rest down-timer.
+- Historical meal save + session actions (14 checks): entry saves to library using
+  the immutable snapshot; entry and day totals unchanged; unknown protein stays
+  null; already-linked entry shows quiet state (no dup); same-name meal not merged;
+  saving alters no dates; new meal active/selectable; real source uses snapshot and
+  guards linked entries; session swap/remove never edit the routine.
+- Regression: starter-library + English-only names + seeding idempotency + v0.10.1
+  unit + full Stage 1–10 all pass; backup validates WITH the new rest fields and
+  remains valid WITHOUT them (backwards-compatible); rest fields + planned-rest
+  snapshot round-trip through backup/restore.
+- Syntax + import: all JS parses; 52 modules import; all used repo/helpers imported.
+- Precache consistent (52 modules, 62 assets); no external deps; no
+  localStorage/sessionStorage; no fetch in app modules; RTL `.num` isolate intact;
+  no muscle diagram; version 0.12.0 / cache v0.12.0.
+
 ## Stage completion rule (every stage)
 
 Never reset IndexedDB. Preserve prior data. Add migrations only when the schema

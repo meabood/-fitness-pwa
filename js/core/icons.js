@@ -13,4 +13,11 @@ export const ICONS = {
   settings: svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   back:    svg('<path d="M15 5l-7 7 7 7"/>'),   // note: header flips for RTL via CSS if needed
   chevron: svg('<path d="M9 6l6 6-6 6"/>'),
+  play:    svg('<path d="M7 5l12 7-12 7z"/>'),
+  check:   svg('<path d="M5 12l5 5 9-10"/>'),
+  trophy:  svg('<path d="M7 4h10v3a5 5 0 0 1-10 0z"/><path d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3M9 13h6M10 17h4M12 17v-4"/>'),
+  flame:   svg('<path d="M12 3c1 3-1 4-1 6a3 3 0 0 0 5 2c1 3-1 8-4 8s-6-3-5-7c.5-2 2-2 2-4 0-1.5-1-2 3-5z"/>'),
+  plus:    svg('<path d="M12 5v14M5 12h14"/>'),
+  clock:   svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'),
+  scale:   svg('<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="10" r="1.6"/><path d="M12 10l2-2"/>'),
 };

@@ -6,6 +6,13 @@
 import { el } from './dom.js';
 import { ICONS } from './icons.js';
 
+/** Visible exercise title: English only. Built-ins carry nameEn ("Chest Press");
+ * custom exercises have only the user-entered name (never renamed in storage). */
+export function exerciseTitle(ex) {
+  if (!ex) return '';
+  return ex.nameEn || ex.name || '';
+}
+
 /**
  * A pure, number-led cluster forced to read left-to-right and never wrap:
  * ranges ("55 / 130"), arrows ("106 → 94"), value+unit ("105.7 كجم"), and

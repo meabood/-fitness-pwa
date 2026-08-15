@@ -191,3 +191,76 @@ that day's exercises), and Exercise Detail (the exercise's broad region). It onl
 appears when the group maps to a region; unmapped groups show nothing (no invented
 anatomy). Built-ins carry mapped Arabic groups, so the map is now consistently
 visible.
+
+## Dashboard redesign + active workout + English names (v0.11.0)
+
+**English-only exercise names.** A display helper `exerciseTitle(ex)` returns
+`ex.nameEn || ex.name`: built-ins show their English name; custom exercises show
+the user's own entered name. This is presentation only — seeding never renames and
+stored records are untouched. Applied across picker, library, detail, routine
+editor, active workout, start flow, and stats.
+
+**Muscle/body diagram removed.** The stylized SVG silhouette could not be trusted
+for anatomical accuracy, so it is no longer surfaced anywhere user-facing
+(`core/bodyMap.js` deleted). `domain/muscleMap.js` remains — used only for the
+picker's broad muscle FILTER chips and text metadata, not for drawing anatomy.
+
+**Home dashboard.** Rebuilt into calm, domain-tinted cards driven entirely by
+stored data: weight (green) hero + next-goal sub-card, nutrition (amber) with a
+protein mini-bar, workout (indigo) that is state-adaptive (start / continue /
+done), a weight-goal mini timeline, and an achievements section that appears only
+for real events (a genuine new low or a reached milestone). Expected-vs-actual is
+derived from the trajectory; nothing is fabricated. Mixed numeric clusters use
+`numericLTR`, preserving RTL correctness.
+
+**Active workout (execution mode).** `session.js` is a dense logging screen with an
+up-counting workout timer anchored to the persistent `session.createdAt`, every
+planned exercise in saved order, a set grid (# · previous · weight · reps · ✓),
+and a rest countdown (90s default, +30/skip) that starts only after a *working*
+set. Previous-performance values are reference-only — prefilled into inputs but a
+set is written solely on an explicit ✓. Finishing marks the session complete and
+shows a factual summary (duration, exercise/set counts, real PRs) without mutating
+history.
+
+**Start flow.** `startWorkout.js` (route `start`, parent `workout`): choose a
+routine, then a day; tapping a day resumes an existing incomplete session for that
+day today or creates one, then enters the active workout. Selection only.
+
+No schema/migration change; the Stage 1–10 engine and v0.10.1 built-in-unit
+behavior are unchanged.
+
+## Configurable rest timers + historical meal save (v0.12.0)
+
+**Rest model.** Two distinct, configurable durations: rest *between sets* and rest
+*after an exercise*. They live on the routine-exercise occurrence
+(`restBetweenSets` / `restAfterExercise`, additive per-record fields on
+`routineExercises` — no schema/migration change), so the same exercise can carry
+different rest in different routines without touching exercise identity. Global
+fallbacks (`restBetweenSetsDefault` 90s, `restAfterExerciseDefault` 120s) live in
+settings under "تسجيل التمرين"; a cleared field falls back to these, and old
+routines with no overrides simply use the defaults. At session start the values
+are snapshotted into `plannedExercises` so an in-progress workout is unaffected by
+later routine edits.
+
+**Active-workout rest.** Committing a *working* set starts the between-set rest;
+the per-exercise "التمرين التالي ⏭" control starts the after-exercise rest and
+scrolls to the next exercise (the final exercise has no such control, so no
+needless rest). The countdown is timestamp-based (module-scoped
+`restBySession` holding `endsAt`), so it survives in-app navigation and derives
+remaining time from the clock (no per-second persistence, no drift); expired rest
+shows nothing. Exactly one countdown exists at a time; +30 and Skip adjust/clear
+it. It is visually and functionally independent of the up-counting workout timer.
+
+**Session-scoped exercise menu (⋯).** Swap, remove, per-exercise note, and reorder
+— all scoped to today's session only. Swap reassigns the session's own sets via
+`updateSet` (unit re-snapshotted, ids kept); remove deletes only this session's
+sets for that exercise; note/reorder edit only the session's planned list. None of
+these ever mutate the saved routine or other sessions' history. Permanent plan
+edits remain in the Routine Editor.
+
+**Historical nutrition → Meal Library.** The entry editor offers "حفظ في مكتبة
+الوجبات", creating a NEW library meal from the entry's immutable per-serving
+snapshot (name, kcal/serving, protein/serving — unknown stays unknown, serving).
+It never mutates the entry, day totals, or other dates, and never merges by name
+(`addMeal` always mints a new id). Entries already linked to a meal show a quiet
+"محفوظة في المكتبة ✓" instead, avoiding accidental duplicates.

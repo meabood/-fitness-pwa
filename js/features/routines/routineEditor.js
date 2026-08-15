@@ -8,13 +8,11 @@ import { on } from '../../core/events.js';
 import {
   getRoutineFull, renameRoutine, setRoutineNotes, archiveRoutine, restoreRoutine, duplicateRoutine,
   addDay, renameDay, deleteDay, duplicateDay, moveDay,
-  addExerciseToDay, removeRoutineExercise, replaceRoutineExercise, setRoutineExerciseNote, moveRoutineExercise,
+  addExerciseToDay, removeRoutineExercise, replaceRoutineExercise, setRoutineExerciseNote, setRoutineExerciseRest, moveRoutineExercise,
 } from '../../data/routines.repo.js';
 import { getAllExercises } from '../../data/exercises.repo.js';
 import { openExercisePicker } from '../exercises/exercisePicker.js';
-import { regionsForExercises } from '../../domain/muscleMap.js';
-import { bodyMap } from '../../core/bodyMap.js';
-import { pageHead, reorderControl } from '../../core/ui.js';
+import { pageHead, reorderControl, exerciseTitle } from '../../core/ui.js';
 import { openSheet } from '../../core/sheet.js';
 
 export function renderRoutineEditor(root, ctx = {}) {
@@ -32,23 +30,14 @@ export function renderRoutineEditor(root, ctx = {}) {
       return;
     }
     const exById = new Map(allEx.map((x) => [x.id, x]));
-    const exName = new Map(allEx.map((x) => [x.id, x.name]));
+    const exTitle = new Map(allEx.map((x) => [x.id, exerciseTitle(x)]));
     const { routine, days } = full;
-
-    // overall muscle map across the whole routine
-    const allInRoutine = [];
-    for (const d of days) for (const rx of d.exercises) { const ex = exById.get(rx.exerciseId); if (ex) allInRoutine.push({ muscleGroup: ex.muscleGroup, name: ex.name }); }
-    const overall = regionsForExercises(allInRoutine);
 
     const newDay = el('input', { className: 'input grow', type: 'text', placeholder: 'اسم اليوم (مثال: دفع)' });
     const addDayBtn = el('button', { className: 'btn btn-primary', text: 'إضافة', onClick: async () => { const n = newDay.value.trim(); if (!n) { toast('أدخل اسمًا'); return; } await addDay(routine.id, n); newDay.value = ''; } });
 
     root.replaceChildren(el('div', { className: 'route-view stack' }, [
       pageHead(routine.name, { actionLabel: 'تفاصيل', onAction: () => openRoutineSettings(routine) }),
-
-      (overall.primary.size || overall.secondary.size)
-        ? el('div', { className: 'panel' }, [bodyMap(overall)])
-        : null,
 
       el('div', { className: 'section-head' }, [el('h2', { text: 'الأيام' })]),
       ...days.map((d, i) => dayCard(d, i, days.length)),
@@ -58,9 +47,6 @@ export function renderRoutineEditor(root, ctx = {}) {
     function dayCard({ day, exercises }, idx, total) {
       const dName = el('input', { className: 'input', type: 'text', value: day.name, attrs: { 'aria-label': 'اسم اليوم' } });
       dName.addEventListener('change', () => renameDay(day.id, dName.value));
-      const exs = exercises.map((rx) => { const ex = exById.get(rx.exerciseId); return ex ? { muscleGroup: ex.muscleGroup, name: ex.name } : {}; });
-      const regions = regionsForExercises(exs);
-
       return el('section', { className: 'day-card' }, [
         el('div', { className: 'day-head' }, [
           el('div', { className: 'grow' }, [
@@ -69,9 +55,6 @@ export function renderRoutineEditor(root, ctx = {}) {
           ]),
           reorderControl({ onUp: () => moveDay(routine.id, day.id, 'up'), onDown: () => moveDay(routine.id, day.id, 'down'), labelUp: 'تحريك اليوم لأعلى', labelDown: 'تحريك اليوم لأسفل' }),
         ]),
-        (regions.primary.size || regions.secondary.size)
-          ? el('div', { style: { marginTop: 'var(--s-3)' } }, [bodyMap(regions, { legend: true })])
-          : null,
         exercises.length
           ? el('div', { style: { marginTop: 'var(--s-3)' } }, exercises.map((rx) => exRow(day, rx)))
           : el('div', { className: 'empty-state', style: { padding: 'var(--s-4)' } }, [el('span', { className: 'muted', text: 'لا توجد تمارين في هذا اليوم.' })]),
@@ -87,15 +70,49 @@ export function renderRoutineEditor(root, ctx = {}) {
     function exRow(day, rx) {
       const noteIn = el('input', { className: 'input input-sm', type: 'text', value: rx.note || '', placeholder: 'ملاحظة (اختياري)', attrs: { 'aria-label': 'ملاحظة التمرين' } });
       noteIn.addEventListener('change', () => setRoutineExerciseNote(rx.id, noteIn.value));
+
+      const restLabel = () => {
+        const b = rx.restBetweenSets, a = rx.restAfterExercise;
+        if (b == null && a == null) return 'استراحة: افتراضي';
+        return `استراحة: ${b != null ? b : '—'}/${a != null ? a : '—'} ث`;
+      };
+      const restChip = el('button', { className: 'meta-chip rest-chip', text: restLabel(), onClick: () => openRestSheet(rx, restChip) });
+
       return el('div', { className: 'ex-line' }, [
         reorderControl({ onUp: () => moveRoutineExercise(day.id, rx.id, 'up'), onDown: () => moveRoutineExercise(day.id, rx.id, 'down'), labelUp: 'تحريك التمرين لأعلى', labelDown: 'تحريك التمرين لأسفل' }),
         el('div', { className: 'ex-nm' }, [
-          el('div', { className: 'ex-nm-title', text: exName.get(rx.exerciseId) || 'تمرين (محذوف)' }),
+          el('div', { className: 'ex-nm-title ex-title', text: exTitle.get(rx.exerciseId) || 'تمرين (محذوف)' }),
           noteIn,
+          el('div', { className: 'meta-chips', style: { marginTop: '4px' } }, [restChip]),
         ]),
         el('button', { className: 'link-btn', text: 'استبدال', onClick: () => openExercisePicker({ onPick: (x) => replaceRoutineExercise(rx.id, x.id) }) }),
         el('button', { className: 'link-btn danger', text: 'إزالة', onClick: () => removeRoutineExercise(rx.id) }),
       ]);
+    }
+
+    // Compact per-exercise rest config (keeps the row uncluttered).
+    function openRestSheet(rx, chip) {
+      const betweenIn = el('input', { className: 'input num', type: 'number', inputmode: 'numeric', step: '5', min: '0', value: rx.restBetweenSets != null ? String(rx.restBetweenSets) : '', placeholder: 'افتراضي' });
+      const afterIn = el('input', { className: 'input num', type: 'number', inputmode: 'numeric', step: '5', min: '0', value: rx.restAfterExercise != null ? String(rx.restAfterExercise) : '', placeholder: 'افتراضي' });
+      const saveBtn = el('button', {
+        className: 'btn btn-primary btn-block', text: 'حفظ',
+        onClick: async () => {
+          await setRoutineExerciseRest(rx.id, { betweenSets: betweenIn.value, afterExercise: afterIn.value });
+          rx.restBetweenSets = betweenIn.value === '' ? null : Math.round(Number(betweenIn.value));
+          rx.restAfterExercise = afterIn.value === '' ? null : Math.round(Number(afterIn.value));
+          chip.textContent = (rx.restBetweenSets == null && rx.restAfterExercise == null)
+            ? 'استراحة: افتراضي'
+            : `استراحة: ${rx.restBetweenSets != null ? rx.restBetweenSets : '—'}/${rx.restAfterExercise != null ? rx.restAfterExercise : '—'} ث`;
+          toast('تم الحفظ'); handle.close();
+        },
+      });
+      const body = el('div', { className: 'stack' }, [
+        el('p', { className: 'hint', text: 'اتركها فارغة لاستخدام الإعداد الافتراضي من إعدادات تسجيل التمرين.' }),
+        el('div', { className: 'field' }, [el('label', { text: 'راحة بين المجموعات (ثانية)' }), betweenIn]),
+        el('div', { className: 'field' }, [el('label', { text: 'راحة بعد التمرين (ثانية)' }), afterIn]),
+        saveBtn,
+      ]);
+      const handle = openSheet({ title: 'إعداد الراحة', body });
     }
 
     function openRoutineSettings(routine) {

@@ -4,7 +4,7 @@ A private, offline-first personal tracker for weight, nutrition, and gym — one
 installable PWA, Arabic/RTL, iPhone-first. No backend, no accounts, no network
 transmission of personal data. Everything lives locally in IndexedDB.
 
-**Status: Full UI/UX polish (v0.8.0) — over the approved Stage 1–10 engine.**
+**Status: Persistent rest + nutrition source-link (v0.12.1).** The rest countdown is persisted on the session record as a timestamp (restEndsAt/restKind), surviving reload and PWA relaunch (remaining derived from the clock; +30/Skip/finish handled; old sessions stay valid). Saving a historical nutrition entry to the Meal Library records the entry's sourceMealId via a snapshot-safe helper, preventing duplicate saves without altering any factual snapshot. Built on the v0.12.0 configurable-rest baseline over the approved Stage 1-10 engine.**
 A cohesive, iPhone-first presentation pass: a calm, typography-led design language
 ("data-rich, visually quiet"), a Home dashboard with three glanceable regions, a
 fast one-handed workout logger (dominant weight×reps, scannable previous

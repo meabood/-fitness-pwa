@@ -9,6 +9,7 @@ import { queryExercises, getExercise } from '../../data/exercises.repo.js';
 import { getRecentExerciseIds } from '../../data/workouts.repo.js';
 import { groupToRegion } from '../../domain/muscleMap.js';
 import { openExerciseEditor } from './exerciseSheets.js';
+import { exerciseTitle } from '../../core/ui.js';
 
 // Broad muscle chips → the set of regions they cover (via muscleMap).
 const MUSCLE_CHIPS = [
@@ -75,15 +76,12 @@ export function openExercisePicker({ title = 'اختر تمرينًا', onPick }
   }
 
   function row(ex) {
-    const region = groupToRegion(ex.muscleGroup) || groupToRegion(ex.name);
     return el('button', { className: 'row picker-row', onClick: () => { handle.close(); onPick && onPick(ex); } }, [
       el('div', { className: 'row-label' }, [
-        el('div', { className: 'pk-ar', text: ex.name }),
-        ex.nameEn ? el('div', { className: 'pk-en numeric-ltr', text: ex.nameEn }) : null,
+        el('div', { className: 'ex-title', text: exerciseTitle(ex) }),
         el('div', { className: 'sub', text: [ex.muscleGroup, ex.equipment].filter(Boolean).join(' · ') || '—' }),
-      ].filter(Boolean)),
-      region ? el('span', { className: 'pk-dot' }) : null,
-    ].filter(Boolean));
+      ]),
+    ]);
   }
 
   async function render() {
