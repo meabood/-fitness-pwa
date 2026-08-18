@@ -3,19 +3,24 @@
 // A day with no entries is "unlogged" (not zero) unless marked complete.
 // Unknown protein stays distinct from zero. No snapshot semantics changed.
 
-import { el, toast } from '../../core/dom.js';
+import { el, toast, snackbar } from '../../core/dom.js';
 import { on } from '../../core/events.js';
-import { getEntriesForDate, getDay, setDayCompleted, copyDay } from '../../data/nutrition.repo.js';
+import { getEntriesForDate, getDay, setDayCompleted, copyDay, deleteEntry, restoreEntry } from '../../data/nutrition.repo.js';
 import { getTargetForDate } from '../../data/settings.repo.js';
 import { dayTotals, remaining } from '../../domain/nutritionStats.js';
 import { formatInt, formatWeight } from '../../core/num.js';
-import { todayLocal, addDays, formatArabicDate } from '../../core/dates.js';
+import { todayLocal, addDays, formatArabicDate, isValidLocalDate } from '../../core/dates.js';
 import { pageHead, hero, progress, statLine, emptyState, numericLTR, valueUnit } from '../../core/ui.js';
+import { swipeRow } from '../../core/controls.js';
 import { openAddEntrySheet, openEditEntrySheet } from './nutritionSheets.js';
+
+// Compact quantity label (¼ ½ ¾ …) for scannable rows.
+const FRACT = { 0.25: '¼', 0.5: '½', 0.75: '¾', 1.5: '1½' };
+const fmtQ = (n) => FRACT[n] || String(Math.round(n * 100) / 100);
 
 export function renderNutrition(root, ctx = {}) {
   const navigate = ctx.navigate || (() => {});
-  let current = todayLocal();
+  let current = (ctx.param && isValidLocalDate(ctx.param)) ? ctx.param : todayLocal();
 
   async function draw() {
     const [entries, day, calTarget, protTarget] = await Promise.all([
@@ -88,17 +93,35 @@ export function renderNutrition(root, ctx = {}) {
           }),
         ]);
       }
-      const rows = entries.map((e) => el('button', { className: 'row', onClick: () => openEditEntrySheet({ entry: e, afterChange: draw }) }, [
-        el('div', { className: 'row-label' }, [
-          el('div', { text: e.nameSnapshot }),
-          el('div', { className: 'sub' }, [
-            numericLTR(`${e.finalProtein != null ? `${formatWeight(e.finalProtein)} جم بروتين` : 'بروتين غير معروف'}${e.quantity !== 1 ? ` · ×${e.quantity}` : ''}${e.servingSnapshot ? ` · ${e.servingSnapshot}` : ''}`),
+      // Scannable rows: food name + quantity/serving, calories prominent (warm
+      // tint), protein shown only when known. Swipe a row to reveal Delete → Undo.
+      const rows = entries.map((e) => {
+        const qtyServe = [
+          e.quantity !== 1 ? `×${fmtQ(e.quantity)}` : null,
+          e.servingSnapshot || null,
+        ].filter(Boolean).join(' · ');
+        const surface = el('button', { className: 'nrow', onClick: () => openEditEntrySheet({ entry: e, afterChange: draw }) }, [
+          el('div', { className: 'nrow-main' }, [
+            el('div', { className: 'nrow-name', text: e.nameSnapshot }),
+            qtyServe ? el('div', { className: 'nrow-sub' }, [numericLTR(qtyServe)]) : null,
+          ].filter(Boolean)),
+          el('div', { className: 'nrow-vals' }, [
+            el('div', { className: 'nrow-cal num' }, [numericLTR(`${formatInt(e.finalCalories)}`), el('span', { className: 'nrow-unit', text: 'سعرة' })]),
+            e.finalProtein != null
+              ? el('div', { className: 'nrow-prot num' }, [numericLTR(`${formatWeight(e.finalProtein)} بروتين`)])
+              : el('div', { className: 'nrow-prot unknown', text: 'بروتين غير معروف' }),
           ]),
-        ]),
-        valueUnit(formatInt(e.finalCalories), 'سعرة'),
-      ]));
+        ]);
+        return swipeRow(surface, {
+          onDelete: async () => {
+            const rec = await deleteEntry(e.id);
+            draw();
+            snackbar('تم حذف الوجبة', { onAction: async () => { await restoreEntry(rec); draw(); toast('تم التراجع'); } });
+          },
+        });
+      });
       return el('section', { className: 'section' }, [
-        head, el('div', { className: 'list' }, rows),
+        head, el('div', { className: 'list nlist' }, rows),
         el('button', { className: 'btn btn-primary btn-block', style: { marginTop: 'var(--s-4)' }, text: '+ إضافة وجبة', onClick: () => openAddEntrySheet({ localDate: current, afterChange: draw }) }),
       ]);
     }

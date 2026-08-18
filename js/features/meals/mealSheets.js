@@ -16,6 +16,9 @@ export function openMealEditor({ meal, afterChange } = {}) {
   const prot = numIn(meal?.protein, 'بروتين (اختياري)');
   const serving = txtIn(meal?.serving, 'وصف الحصة (اختياري)');
   const notes = txtIn(meal?.notes, 'ملاحظات (اختياري)');
+  const snap = () => [name.value, cal.value, prot.value, serving.value, notes.value].join('\u0001');
+  const initial = snap();
+  const isDirty = () => snap() !== initial;
   const errBox = el('div', {});
 
   const save = el('button', {
@@ -32,12 +35,13 @@ export function openMealEditor({ meal, afterChange } = {}) {
   });
 
   const body = el('div', { className: 'stack' }, [
+    el('div', { className: 'entry-kind lib muted-sm', text: 'تعريف في المكتبة — قالب يُعاد استخدامه عند التسجيل (لكل حصة)' }),
     labeled('الاسم', name), labeled('السعرات لكل حصة', cal),
     labeled('البروتين لكل حصة (اختياري)', prot),
     el('p', { className: 'hint', text: 'اترك البروتين فارغًا إذا كان غير معروف — لن يُحتسب صفرًا.' }),
     labeled('الحصة', serving), labeled('ملاحظات', notes),
     errBox, el('div', { style: { marginTop: 'var(--s-4)' } }, [save]),
   ]);
-  const handle = openSheet({ title: meal ? 'تعديل وجبة' : 'وجبة جديدة', body });
+  const handle = openSheet({ title: meal ? 'تعديل تعريف الوجبة' : 'وجبة جديدة في المكتبة', body, dirty: isDirty });
   return handle;
 }

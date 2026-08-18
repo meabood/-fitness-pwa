@@ -175,6 +175,13 @@ export async function getEntriesForDate(localDate) {
   return rows.sort(byDateTime);
 }
 
+/** All weight entries whose localDate is within [from,to] (bounded index scan,
+ * not a full-store scan). Sorted by (localDate, time). */
+export async function getEntriesInRange(from, to) {
+  const rows = await getAllByIndex(STORE, 'localDate', IDBKeyRange.bound(from, to));
+  return rows.sort(byDateTime);
+}
+
 /** Today's official entry, or null. */
 export async function getTodayOfficial() {
   const rows = await getEntriesForDate(todayLocal());

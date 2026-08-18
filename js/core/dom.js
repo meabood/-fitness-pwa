@@ -58,3 +58,23 @@ export function toast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.remove(), 1800);
 }
+
+let snackTimer;
+/**
+ * Snackbar with an Undo action for reversible operations. The action fires at
+ * most once; the bar auto-dismisses after ~6s. Returns a dismiss function.
+ */
+export function snackbar(message, { actionLabel = 'تراجع', onAction } = {}) {
+  document.querySelector('.snackbar')?.remove();
+  clearTimeout(snackTimer);
+  let done = false;
+  const bar = el('div', { className: 'snackbar', role: 'status' });
+  const dismiss = () => { clearTimeout(snackTimer); bar.remove(); };
+  bar.append(el('span', { className: 'sb-msg', text: message }));
+  if (onAction) {
+    bar.append(el('button', { text: actionLabel, onClick: async () => { if (done) return; done = true; dismiss(); await onAction(); } }));
+  }
+  document.body.append(bar);
+  snackTimer = setTimeout(dismiss, 6000);
+  return dismiss;
+}

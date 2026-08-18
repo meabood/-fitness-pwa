@@ -404,6 +404,211 @@ Verified (offline, static + pure where DOM/IDB is required):
   localStorage/sessionStorage; no fetch in app modules; RTL `.num` isolate intact;
   no muscle diagram; version 0.12.0 / cache v0.12.0.
 
+## Reliability & recovery (v0.13.0) — acceptance
+
+- recovery domain suite (38 checks): effective elapsed incl. pause + duration
+  override + never-negative; pause/resume patch math; stale detection (with pause
+  discount, completed-never-stale); reopen-as-active window; next-day suggestion
+  (wrap, ignores incomplete, ambiguous→null); incomplete/finish detection
+  (warmup-only counts, nothing-logged→no nag); conservative weight + load outlier
+  thresholds (normal progression never flagged).
+- repo-behavior + source invariants (19 checks): deleteSet returns snapshot and
+  restoreSet re-inserts same id; remove-exercise returns undo payload and restores
+  at index with same set ids; deleteEntry/restoreEntry preserve snapshot+source;
+  change-day guarded on existing sets + re-snapshots; duration normalization;
+  active-routine filters archived/missing; finish sets completedAt + clears rest;
+  pause stores timestamp; safety snapshot before Replace; export records
+  lastBackupExportedAt.
+- regression (14 checks): Stage 1–10, starter-library, v0.10.1 unit, English-only,
+  muscle-map filter; backup validates sessions WITH the new reliability fields
+  (pausedAccumSec/durationSecOverride/completedAt) and WITHOUT them, and they
+  round-trip. Full syntax + import smoke (21 modules) clean; precache consistent
+  (53 modules, 63 assets); no external deps; no browser storage; no fetch in app.
+  Version 0.13.0 / cache v0.13.0.
+
+## Reliability correctness patch (v0.13.1) — acceptance
+
+- Duration/resume model (19 checks): finish=60:00; resume +30m idle stays 60:00
+  (not 90:00); +10 active → 70:00; corrected 72:00 resumes to 72:00 then +8 →
+  80:00; survives reload; pause-after-resume excludes paused time; finish→resume→
+  finish keeps same id; stale override can't overwrite resumed time; active
+  correction keeps counting (1:10→+5→1:15).
+- Repo-boundary/invariants (22 checks): single-active guard (Push+Pull, two
+  routines, surfaced, cancel-empty, survives reload); addSet never flips completed
+  / starts no rest; meal referenced-delete blocked + archive ok + unreferenced ok
+  + no orphan; swap preserves slot rest + routine untouched; changeSessionDay
+  same-session + guarded + resets duration; UI uses changeSessionDay not
+  delete+recreate; reopen safeguard + empty-finish wired.
+- Recovery-UX/body-weight/safety-backup (24 checks): stale detection + direct
+  duration edit; empty vs partial finish; suggestion filters to active routine;
+  chronological reference weight (old-date edit ignores future, not fooled by
+  creation order); normal fluctuation not flagged, typo flagged, soft confirm;
+  safety-backup failure stops replace + explicit continue-without + distinguishable
+  filename.
+- Dirty-guard + regression (20 checks): clean→not dirty, changed→dirty, guard only
+  on dirty, save path bypasses; Stage 1–10, starter-library, v0.10.1 unit,
+  English-only; backup round-trips the duration-model fields and stays valid
+  without them; orphan sourceMealId rejected by validator (matches the delete
+  guard).
+- Full syntax + import smoke (22 modules) clean; precache consistent (53 modules,
+  63 assets); no external deps; no browser storage; no fetch in app; RTL `.num`
+  isolate intact; no muscle diagram. Version 0.13.1 / cache v0.13.1.
+
+## Final reliability patch (v0.13.2) — acceptance
+
+- Legacy duration (25-case fix suite): completed legacy 20:00→21:00 viewed at
+  22:00 = 60m not 120; days-later stays 60m; completedAt vs clock vs override
+  precedence; midnight wrap; no-end-info → 0 (never wall clock); reopen banks
+  correct historical duration then +10 = 70m, same id; active legacy still counts;
+  new accumulator sessions unaffected.
+- Same-day weight reference: earlier same-day (08:00) is reference for 20:00;
+  later same-day never used for an 08:00 entry; excludes edited entry; no time →
+  no same-day guess; old entry never compares to future.
+- Safety filename: manual unchanged; safety = fitness-backup-before-restore-*;
+  downloadBackup honors prefix; failure stops replace; success only after real
+  download.
+- Workout Hub / multi-active: hub uses getActiveSession (not recent scan);
+  getAllActiveSessions detects >1; banner offers per-session continue/finish;
+  nothing auto-deleted/finished.
+- Regression (19 checks): duration/resume model, stale + reopen window,
+  routine-filtered suggestion, finish guards, weight/load outliers, Stage 1–10
+  spot (finals, PR chronology), starter/English names, backup validates legacy +
+  new session shapes.
+- Full syntax + import smoke (22 modules); precache consistent (53 modules, 63
+  assets); no external deps; no browser storage; no fetch in app; RTL `.num`
+  isolate intact; no muscle diagram. Version 0.13.2 / cache v0.13.2.
+
+## Calendar-first daily history (v0.14.0) — acceptance
+
+- Calendar + aggregation (33 checks): Saturday-first grid, leap/September offsets,
+  month bounds, prev/next wrap, monthOf; indicators data-exists only (nutrition/
+  workout/weight, empty day → none); nutrition totals with unknown protein
+  preserved (all-unknown → null, partial sums known only); multiple same-day
+  workouts all shown with authoritative duration passed in, warmups excluded from
+  working count; weight official-prominent with extras disclosed; history list
+  only dates-with-data, newest first, single summary shape; late-night localDate
+  never shifts (no UTC).
+- Source contracts (18 checks): month indicators = 3 bounded range queries with no
+  per-cell loop; range repos use IDBKeyRange.bound; one openDaySummary used by both
+  calendar and list; calendar rendered above the analytics body; existing chart
+  panels preserved; drawBody redraws body only; today vs selected distinct;
+  selecting creates no data; no goal language in indicators; history groups by
+  localDate (no getUTC/toISOString); day summary uses effectiveElapsedSec; no
+  arbitrary recent-N limit.
+- Regression (10 checks): duration/resume + legacy completed duration; stale;
+  next-day suggestion; same-day weight ref; weight outlier; finals + unknown
+  protein; PR chronology; English-only names; backup validates unchanged.
+- Full syntax + import smoke (5 new modules); precache consistent (57 modules, 67
+  assets); no external deps; no browser storage; no UTC in logic; RTL `.num`
+  isolate intact; no muscle diagram. Version 0.14.0 / cache v0.14.0.
+
+## Weight milestones UX (v0.15.0) — acceptance
+
+- Generator + merge + buildItems (26 checks): 105.5→95 @0.5 weekly = 20 strictly-
+  between checkpoints (105.0@29Aug … 95.5), endpoints excluded, every step exactly
+  0.5 (no float drift), dates +7d, passes validateGoalPlan; non-grid final clamps
+  to nearest checkpoint; gaining direction; step≥gap rejected; monthly date math;
+  invalid inputs + runaway cap rejected; merge add keeps all, replace preserves
+  achieved & drops unreached & dedups slots, no-existing → generated; buildItems
+  orders heaviest→lightest with final last and currentIdx = first unreached.
+- UI + generator source contracts (32 checks): strip overflow-x:auto + flex row +
+  nodes flex:0 0 auto/min-width (no overlap); auto-focus scrollIntoView(inline
+  center) in rAF, focus current else final; numericLTR weights; logical-prop RTL
+  connectors; done/current/future/final states; Home compact timeline, no
+  goaldots, no vertical list; Weight & Goals use shared timeline; generator
+  previews before save, shows count, writes only via updatePlan (atomic) after
+  preview, no separate store, conflict choices add/replace/cancel preserve
+  achieved, validates before write, cancel writes nothing, prefixed from factual
+  context; manual editor still present.
+- Regression (16 checks): generated milestones drive achievement derivation
+  (reached/next), New Lowest, official-only semantics, historical-edit recompute,
+  backup validates plan+generated milestones, Calendar grid + nutrition/weight
+  summaries intact, duration/resume + legacy completed duration + same-day weight
+  ref intact, PR chronology intact.
+- Full syntax + import smoke (60 modules); precache consistent (60 modules, 70
+  assets); no external deps; no browser storage; no UTC in new logic; RTL `.num`
+  isolate intact; English-only names; no muscle diagram. Version 0.15.0 / cache
+  v0.15.0.
+
+## Milestone generator context + weekly summary (v0.15.1) — acceptance
+
+- Fixes (36 checks): generator defaults start weight+date from the same latest
+  official measurement, never plan-start date; start date editable; plan history
+  not rewritten. requiredFinalDate = start+(n+1) intervals; preview detects
+  required>finalDate, shows both, offers update/edit/cancel; accepting extends
+  finalDate in the same atomic updatePlan; never shortens a later date; validator
+  unchanged; declining writes nothing. Home "this week" replaces expected/actual/
+  diff; derives from official timeline (nothing stored); week-start/latest/change/
+  next-target; single weigh-in change null; no in-week data weekStart null with
+  latest shown; empty handled. Week starts Saturday; localDate only.
+- Timeline preserved + regression (20 checks): overflow-x scroll, min-width nodes,
+  scrollIntoView auto-focus, numericLTR bidi, done/current/future/final, no
+  goaldots; buildItems intact; generator 20 checkpoints + validation; merge
+  preserves achieved; derivation+next, New Lowest, official-only, historical-edit
+  recompute, backup, Calendar, duration/resume + legacy completed + same-day
+  weight ref, PR chronology — intact.
+- Full syntax + import smoke (60 modules); precache consistent (60 modules, 70
+  assets); no external deps; no browser storage; RTL isolate intact. Version
+  0.15.1 / cache v0.15.1.
+
+## Nutrition + Workout UX pass (v0.16.0) — acceptance
+
+- Week-card + nutrition domain (18 checks): weekSummary scopes first/latest/change
+  to the in-week official measurements; no in-week data -> hasWeekData false and
+  prior kept only as context (never shown as this week's); single in-week measure
+  -> change null; first-in-week may be Wednesday; Saturday boundary; dayTotals and
+  computeFinals unknown-protein + fraction math intact.
+- UI source contracts (31 checks): shared stepper/disclosure/swipeRow reused in
+  nutrition + workout; nutrition rows swipe-delete -> restoreEntry Undo, calories
+  (nutrition tint) + protein-when-known (cool tint); add sheet live total + stepper
+  + unknown protein preserved; edit sheet secondary disclosed + subtle delete;
+  logged-entry vs library-definition labels; workout previous-performance line;
+  logged-set swipe-delete -> restoreSet; set editor RIR+delete disclosed; rest
+  sticky/contextual; Home wording renamed + honest empty week; preserved wiring
+  (historicalAddRow, effectiveElapsedSec, isPausedState, rest config, outlier).
+- Regression (17 checks): milestone derivation+next, New Lowest, official-only,
+  Saturday week, backup validates, calendar, day-summary unknown protein, finals,
+  duration/resume + legacy completed + same-day weight ref, PR chronology, warm-up
+  never PR-flagged, lastPerformance intact.
+- Full syntax + import smoke (61 modules); precache consistent (61 modules, 71
+  assets); no external deps; no browser storage; no UTC in new logic; RTL `.num`
+  isolate intact. Version 0.16.0 / cache v0.16.0.
+
+## Polish fixes (v0.16.1) — acceptance
+
+- Fixes (17 checks): nutritionSheets + session import the numericLTR they use;
+  controls drops the unused import; repo-wide no unimported numericLTR. Swipe
+  computes a dir sign and translates by sign; reveal-amount commit; simulated
+  RTL swipe-right and LTR swipe-left both reveal past threshold while the opposite
+  drags do not. Exactly one .stepper (column component); legacy .stepper button/
+  input and .qty-chips removed. APP_NAME centralized.
+- Regression (13 checks): nutrition swipe-delete+undo, set swipe-delete+undo,
+  previous-performance line, live total + stepper, unknown-protein preserved; Home
+  week card empty/in-week; Saturday week; dayTotals partial protein; finals; PR
+  chronology; duration/resume; backup validates.
+- Full syntax + import smoke (all touched modules load); precache consistent (61
+  modules, 71 assets); no external deps; no browser storage. Version 0.16.1 /
+  cache v0.16.1.
+
+## LOCKD identity + v0.16 completion (v0.16.2) — acceptance
+
+- Acceptance (33 checks): manifest name/short_name = LOCKD, document + apple
+  titles = LOCKD, APP_NAME = LOCKD, old Arabic name gone from identity; DB_NAME
+  and cache prefix unchanged; all four icons exist (>500b) and are precached.
+  Manual live total = per-serving x qty; blank protein stays unknown; fractional
+  and arbitrary quantities; reacts to calories/protein/quantity input; date/time/
+  note disclosed; Save-to-Library secondary; manual-log kind banner. Workout
+  السابق column + prevText removed, grid now 4 cols; PREFILL (weight+reps) and
+  outlier reference preserved; آخر مرة line kept.
+- Regression (16 checks): dayTotals partial/unknown protein, finals fractions;
+  milestone derivation+next, New Lowest; Home week card empty/in-week + Saturday;
+  calendar grid; day-summary unknown protein; PR chronology; warm-up never PR;
+  lastPerformance intact (feeds prefill + آخر مرة); duration/resume + same-day
+  weight ref; backup validates; edit blank-protein stays unknown.
+- Full syntax + import smoke; precache consistent (61 modules, 71 assets incl. 4
+  icons); no external deps; no browser storage; RTL `.num` isolate intact.
+  Version 0.16.2 / cache v0.16.2.
+
 ## Stage completion rule (every stage)
 
 Never reset IndexedDB. Preserve prior data. Add migrations only when the schema

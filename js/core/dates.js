@@ -11,10 +11,13 @@
 // Everything in the app queries by the "YYYY-MM-DD" string, so "which day" is
 // unambiguous and stable across timezones and DST.
 
-const AR_MONTHS = [
+export const AR_MONTHS = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
 ];
+
+/** "أغسطس 2026" for a 0-based month index. Display only. */
+export function monthLabel(year, month0) { return `${AR_MONTHS[month0]} ${year}`; }
 
 const pad2 = (n) => String(n).padStart(2, '0');
 

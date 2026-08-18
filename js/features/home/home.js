@@ -15,8 +15,9 @@ import { getConfig, getTargetForDate } from '../../data/settings.repo.js';
 import { getEntriesForDate, getDay } from '../../data/nutrition.repo.js';
 import { getSessionsForDate } from '../../data/workouts.repo.js';
 import { dayTotals, remaining } from '../../domain/nutritionStats.js';
-import { previousOfficialBefore, changeKg } from '../../domain/weightStats.js';
+import { previousOfficialBefore, changeKg, weekSummary } from '../../domain/weightStats.js';
 import { computeWeightSummary } from '../../domain/weightAchievements.js';
+import { milestoneTimeline } from '../weight/milestoneTimeline.js';
 
 const trajStatus = {
   ahead: { text: 'متقدم على المسار', cls: 'down' },
@@ -178,44 +179,52 @@ export function renderHome(root, { navigate }) {
 
   // ── Weight goals mini timeline ──
   function goalsSection(s, plan, navigate) {
-    const ms = (s.milestones || []).filter((m) => !m.sameAsFinal).map((m) => ({ w: m.targetWeight, done: m.reached }));
-    if (s.finalStatus) ms.push({ w: s.finalStatus.targetWeight, done: s.finalStatus.reached, final: true });
-    if (!ms.length) return null;
-    ms.sort((a, b) => b.w - a.w);
-    const firstUnreached = ms.findIndex((m) => !m.done);
+    const hasMs = (s.milestones || []).some((m) => !m.sameAsFinal) || !!s.finalStatus;
+    if (!hasMs) return null;
+    // Compact, horizontally scrollable timeline (auto-focused on the current
+    // milestone). It never compresses many milestones into the viewport and
+    // never adds a long list below — Home stays compact.
+    const track = milestoneTimeline(s, { compact: true });
 
-    const dots = el('div', { className: 'goaldots' });
-    ms.forEach((m, i) => {
-      if (i > 0) dots.append(el('span', { className: `seg${ms[i - 1].done ? ' done' : ''}` }));
-      const isCurrent = i === firstUnreached;
-      dots.append(el('div', { className: `gd${m.done ? ' done' : ''}${isCurrent ? ' current' : ''}` }, [
-        el('span', { className: 'dot', html: m.done ? '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>' : '' }),
-        el('span', { className: 'gw num', text: formatWeight(m.w) }),
-        el('span', { className: 'gu', text: 'كجم' }),
-      ]));
-    });
-
-    // expected vs actual summary
+    // Compact "this week" summary (replaces the old expected/actual/diff box).
+    // Everything shown is scoped strictly to the current Saturday-based week; a
+    // previous-week weigh-in is never presented as this week's. Nothing stored.
+    const wk = weekSummary(s.timeline || [], todayLocal());
     let summary = null;
-    if (s.latest && s.trajectory && s.trajectory.status && Number.isFinite(s.trajectory.deltaKg)) {
-      const expected = s.latest.weightKg - s.trajectory.deltaKg;
-      const diff = s.trajectory.deltaKg;
-      const t = trajStatus[s.trajectory.status];
+    {
       const cell = (label, node, sub) => el('div', { className: 'grow', style: { textAlign: 'center' } }, [
         el('div', { className: 'muted-sm', text: label }), node, sub || null,
       ].filter(Boolean));
-      summary = el('div', { className: 'dcard', style: { background: 'var(--weight-soft)', border: 'none', marginTop: 'var(--s-3)' } }, [
-        el('div', { className: 'row-inline' }, [
-          cell('هدف اليوم المتوقع', el('div', { className: 'num', style: { fontWeight: 'var(--w-semibold)' } }, [numericLTR(`${formatWeight(expected)} كجم`)])),
-          cell('وزنك اليوم', el('div', { className: 'num', style: { fontWeight: 'var(--w-semibold)' } }, [numericLTR(`${formatWeight(s.latest.weightKg)} كجم`)])),
-          cell('الفارق', el('div', { className: `delta ${t.cls}`, style: { fontWeight: 'var(--w-semibold)' } }, [numericLTR(`${formatDelta(diff)} كجم`)]), el('div', { className: 'muted-sm', text: t.text })),
-        ]),
-      ]);
+      const bigNum = (txt) => el('div', { className: 'num', style: { fontWeight: 'var(--w-semibold)' } }, [numericLTR(txt)]);
+      const nextTargetTxt = s.next ? `${formatWeight(s.next.targetWeight)} كجم` : (s.finalStatus && s.finalStatus.reached ? 'تحقّق الهدف' : '—');
+      const nextLabel = s.next && s.next.kind === 'final' ? 'الهدف' : 'المرحلة القادمة';
+
+      const head = el('div', { className: 'wk-head muted-sm', text: 'هذا الأسبوع' });
+      let row;
+      if (!wk.hasWeekData) {
+        // No official measurement this week — say so plainly; never show a
+        // prior-week weight as if it were this week's, and no fabricated change.
+        row = el('div', { className: 'row-inline', style: { marginTop: 'var(--s-2)' } }, [
+          cell('القياس', el('div', { className: 'muted-sm', text: 'لا يوجد قياس هذا الأسبوع' })),
+          cell(nextLabel, bigNum(nextTargetTxt)),
+        ]);
+      } else {
+        const changeCell = wk.changeKg != null
+          ? cell('التغير', el('div', { className: `delta ${wk.changeKg < 0 ? 'down' : wk.changeKg > 0 ? 'up' : 'flat'}`, style: { fontWeight: 'var(--w-semibold)' } }, [numericLTR(`${formatDelta(wk.changeKg)} كجم`)]))
+          : cell('التغير', el('div', { className: 'muted-sm', text: 'قياس واحد' }));
+        row = el('div', { className: 'row-inline', style: { marginTop: 'var(--s-2)' } }, [
+          cell('أول قياس هذا الأسبوع', bigNum(`${formatWeight(wk.firstInWeek.weightKg)} كجم`)),
+          cell('آخر وزن', bigNum(`${formatWeight(wk.latestInWeek.weightKg)} كجم`)),
+          changeCell,
+          cell(nextLabel, bigNum(nextTargetTxt)),
+        ]);
+      }
+      summary = el('div', { className: 'dcard', style: { background: 'var(--weight-soft)', border: 'none', marginTop: 'var(--s-3)' } }, [head, row]);
     }
 
     return el('section', { className: 'section' }, [
       el('div', { className: 'section-head' }, [el('h2', { text: 'أهداف الوزن' }), el('button', { className: 'sec-action', text: 'عرض الكل', onClick: () => navigate('goals') })]),
-      el('div', { className: 'dcard' }, [dots]),
+      track,
       summary,
     ].filter(Boolean));
   }

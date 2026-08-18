@@ -17,7 +17,7 @@ import { pageHead, segmented } from '../../core/ui.js';
 export async function renderSettings(root, ctx = {}) {
   const navigate = ctx.navigate || (() => {});
   // Load current values up front.
-  const [calorieTarget, proteinTarget, weightUnit, exerciseUnit, restBetween, restAfter, persisted, est] =
+  const [calorieTarget, proteinTarget, weightUnit, exerciseUnit, restBetween, restAfter, lastBackupAt, persisted, est] =
     await Promise.all([
       getCurrentTarget('calorie'),
       getCurrentTarget('protein'),
@@ -25,6 +25,7 @@ export async function renderSettings(root, ctx = {}) {
       getConfig('defaultExerciseUnit'),
       getConfig('restBetweenSetsDefault'),
       getConfig('restAfterExerciseDefault'),
+      getConfig('lastBackupExportedAt'),
       isPersisted(),
       estimate(),
     ]);
@@ -87,13 +88,14 @@ export async function renderSettings(root, ctx = {}) {
     section('النسخ الاحتياطي', [
       el('div', { className: 'list' }, [
         rowButton('تصدير نسخة احتياطية (JSON)', async () => {
-          try { const data = await exportBackup(); downloadBackup(data); toast('تم إنشاء ملف النسخة'); }
+          try { const data = await exportBackup(); downloadBackup(data); await setConfig('lastBackupExportedAt', Date.now()); toast('تم إنشاء ملف النسخة'); renderSettings(root, ctx); }
           catch (e) { toast('تعذّر التصدير'); }
         }),
         rowButton('استعادة من نسخة احتياطية', () => openRestoreFlow()),
+        infoRow('آخر نسخة احتياطية', lastBackupAt ? relativeSince(lastBackupAt) : 'لم تُؤخذ بعد'),
       ]),
       el('div', { className: 'notice', text:
-        'التصدير يحفظ نسخة كاملة من بياناتك في ملف على جهازك. عند الاستعادة: «استبدال كامل» يستبدل بياناتك الحالية بالكامل بمحتوى الملف، و«دمج آمن» يضيف الجديد فقط وقد يرفض الملف إذا تعارضت بياناته مع الموجود. بياناتك محفوظة محليًا فقط؛ خذ نسخة دوريًا.' }),
+        'التصدير يحفظ نسخة كاملة من بياناتك في ملف على جهازك. عند الاستعادة: «استبدال كامل» يستبدل بياناتك الحالية بالكامل بمحتوى الملف (ويُصدَّر تلقائيًا نسخة أمان قبل الاستبدال)، و«دمج آمن» يضيف الجديد فقط وقد يرفض الملف إذا تعارضت بياناته مع الموجود. بياناتك محفوظة محليًا فقط؛ خذ نسخة دوريًا.' }),
     ]),
 
     // ---- Durability / persistent storage ----
@@ -186,6 +188,32 @@ export async function renderSettings(root, ctx = {}) {
   }
 
   async function doImport(obj, mode, handle) {
+    if (mode === 'replace') {
+      // Safety snapshot BEFORE destructive replace. If it fails, DO NOT silently
+      // continue — require deliberate user intent to proceed without it.
+      let safetyOk = false;
+      try {
+        const cur = await exportBackup();
+        downloadBackup(cur, 'fitness-backup-before-restore'); // distinguishable filename
+        safetyOk = true;
+        await setConfig('lastBackupExportedAt', Date.now());
+      } catch (_) { safetyOk = false; }
+
+      if (!safetyOk) {
+        const body = el('div', { className: 'stack' }, [
+          el('p', { className: 'rb-title', text: 'تعذر إنشاء نسخة أمان قبل الاستعادة.' }),
+          el('p', { className: 'muted-sm', text: 'لم يتم استبدال أي بيانات بعد. يمكنك الإلغاء، أو المتابعة دون نسخة أمان (غير موصى به).' }),
+          el('button', { className: 'btn btn-secondary btn-block', text: 'إلغاء', onClick: () => h.close() }),
+          el('button', { className: 'btn btn-danger btn-block', text: 'المتابعة بدون نسخة أمان', onClick: async () => { h.close(); await applyImport(obj, 'replace', handle); } }),
+        ]);
+        const h = openSheet({ title: 'تحذير', body });
+        return; // stop here; replacement only proceeds on explicit choice
+      }
+    }
+    await applyImport(obj, mode, handle);
+  }
+
+  async function applyImport(obj, mode, handle) {
     try {
       const res = await importBackup(obj, { mode });
       const total = Object.values(res.counts).reduce((a, b) => a + b, 0);
@@ -240,6 +268,17 @@ function segmentField({ label, value, options, onChange }) {
   ));
   build();
   return el('div', { className: 'field' }, [el('label', { text: label }), wrap]);
+}
+
+function relativeSince(ts) {
+  const ms = Date.now() - Number(ts);
+  if (!Number.isFinite(ms) || ms < 0) return '—';
+  const days = Math.floor(ms / 86400000);
+  if (days === 0) return 'اليوم';
+  if (days === 1) return 'أمس';
+  if (days < 7) return `قبل ${days} أيام`;
+  if (days < 30) return `قبل ${Math.floor(days / 7)} أسابيع`;
+  return `قبل ${Math.floor(days / 30)} أشهر`;
 }
 
 function infoRow(label, value) {

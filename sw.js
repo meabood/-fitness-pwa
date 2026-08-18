@@ -8,7 +8,7 @@
 
 // Bump this string on each release to publish new assets. Old caches keyed by a
 // previous version are removed on activate.
-const CACHE = 'fitness-shell-v0.12.1';
+const CACHE = 'fitness-shell-v0.16.2';
 
 // The app shell: static files required to boot offline.
 const ASSETS = [
@@ -29,24 +29,32 @@ const ASSETS = [
   './js/core/icons.js',
   './js/core/storage.js',
   './js/core/sheet.js',
+  './js/core/controls.js',
   './js/core/ui.js',
   './js/domain/muscleMap.js',
+  './js/domain/recovery.js',
+  './js/domain/milestoneGen.js',
+  './js/domain/calendar.js',
+  './js/domain/dayHistory.js',
   './js/domain/weightStats.js',
   './js/data/settings.repo.js',
   './js/data/weight.repo.js',
   './js/features/home/home.js',
   './js/features/settings/settings.js',
   './js/features/weight/weight.js',
+  './js/features/weight/milestoneTimeline.js',
   './js/features/weight/weightSheets.js',
   './js/domain/trajectory.js',
   './js/domain/weightAchievements.js',
   './js/domain/goalValidation.js',
   './js/data/goals.repo.js',
   './js/features/goals/goals.js',
+  './js/features/goals/generatorSheet.js',
   './js/features/goals/goalSheets.js',
   './js/domain/nutritionStats.js',
   './js/data/meals.repo.js',
   './js/data/nutrition.repo.js',
+  './js/data/history.repo.js',
   './js/data/exercises.repo.js',
   './js/data/builtinExercises.js',
   './js/features/nutrition/nutrition.js',
@@ -63,6 +71,7 @@ const ASSETS = [
   './js/domain/statsData.js',
   './js/data/backup.js',
   './js/features/stats/stats.js',
+  './js/features/stats/calendar.js',
   './js/data/routines.repo.js',
   './js/data/workouts.repo.js',
   './js/features/exercises/exercisePicker.js',

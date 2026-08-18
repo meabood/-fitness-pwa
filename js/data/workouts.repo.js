@@ -16,11 +16,38 @@ import { getRoutine, getDays, getDayExercises } from './routines.repo.js';
 import { getExercise } from './exercises.repo.js';
 import { lastPerformance } from '../domain/workoutMemory.js';
 import { computeExerciseRecords, sessionAchievements } from '../domain/gymRecords.js';
+import { startPatch, finishPatch, reopenPatch, pausePatch, resumePatch, setDurationPatch, resetDurationPatch } from '../domain/recovery.js';
 
 const SESSIONS = 'workoutSessions';
 const SETS = 'workoutSets';
 const clean = (v) => String(v ?? '').trim();
 const byOrder = (a, b) => (a.order - b.order) || ((a.createdAt || 0) - (b.createdAt || 0));
+
+/** Error thrown when the one-active-workout invariant would be violated. The
+ * caller (UI) catches it and surfaces the existing session instead of creating
+ * a second one. */
+export class ActiveSessionExistsError extends Error {
+  constructor(sessionId) { super('active session exists'); this.name = 'ActiveSessionExistsError'; this.sessionId = sessionId; }
+}
+
+/** The single active (incomplete) session, or null. Enforced app-wide so Home,
+ * Workout Hub, Start Workout, day changes, and reload all agree. */
+export async function getActiveSession() {
+  const all = await getAll(SESSIONS);
+  const active = all.filter((s) => !s.completed);
+  if (!active.length) return null;
+  // Deterministic: the most recently created open session.
+  active.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return active[0];
+}
+
+/** ALL active (incomplete) sessions, newest first. Normally 0 or 1; used to
+ * detect a legacy-invalid multi-active state so the UI can offer resolution
+ * without silently deleting or finishing anything. */
+export async function getAllActiveSessions() {
+  const all = await getAll(SESSIONS);
+  return all.filter((s) => !s.completed).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
 
 // ---- validation ----
 export function validateSet({ weight, reps, setType, rir }) {
@@ -56,7 +83,14 @@ async function snapshotPlanned(routineDayId) {
  * Start a session from a routine day (snapshots routine/day names + planned
  * exercises), or ad-hoc when routineId/dayId are omitted.
  */
-export async function startSession({ routineId = null, routineDayId = null, localDate } = {}) {
+export async function startSession({ routineId = null, routineDayId = null, localDate, allowSecond = false } = {}) {
+  // One-active-workout invariant (enforced at the repo boundary). The UI passes
+  // allowSecond=false; if an active session already exists we refuse and let the
+  // caller surface it instead of silently creating a second active workout.
+  if (!allowSecond) {
+    const existing = await getActiveSession();
+    if (existing) throw new ActiveSessionExistsError(existing.id);
+  }
   const ts = now();
   let routineNameSnapshot = '', routineDayNameSnapshot = '', plannedExercises = [];
   if (routineId && routineDayId) {
@@ -78,6 +112,7 @@ export async function startSession({ routineId = null, routineDayId = null, loca
     notes: '',
     completed: false,
     createdAt: ts, updatedAt: ts,
+    ...startPatch(ts),          // accumulator duration model (accumulatedSec/runningSince/paused)
   };
   await put(SESSIONS, session);
   emit('workout:changed', {});
@@ -88,6 +123,11 @@ export const getSession = (id) => get(SESSIONS, id);
 export const getAllSessions = () => getAll(SESSIONS);
 export async function getSessionsForDate(localDate) {
   return getAllByIndex(SESSIONS, 'localDate', IDBKeyRange.only(localDate));
+}
+
+/** All sessions whose localDate is within [from,to] (bounded index scan). */
+export async function getSessionsInRange(from, to) {
+  return getAllByIndex(SESSIONS, 'localDate', IDBKeyRange.bound(from, to));
 }
 export async function getRecentSessions(limit = 20) {
   const all = await getAll(SESSIONS);
@@ -139,14 +179,38 @@ export async function setSessionExerciseNote(sessionId, exerciseId, note) {
  * (other sessions/history untouched) and drops it from the planned list. */
 export async function removeExerciseFromSession(sessionId, exerciseId) {
   const sets = await getSetsForSessionExercise(sessionId, exerciseId);
+  const removedSets = sets.map((s) => ({ ...s }));   // snapshot for undo
   for (const st of sets) await del(SETS, st.id);
+  let removedPlanned = null, removedIndex = -1;
   const s = await get(SESSIONS, sessionId);
   if (s) {
-    s.plannedExercises = (s.plannedExercises || []).filter((p) => p.exerciseId !== exerciseId);
+    s.plannedExercises = s.plannedExercises || [];
+    removedIndex = s.plannedExercises.findIndex((p) => p.exerciseId === exerciseId);
+    if (removedIndex >= 0) removedPlanned = { ...s.plannedExercises[removedIndex] };
+    s.plannedExercises = s.plannedExercises.filter((p) => p.exerciseId !== exerciseId);
     s.updatedAt = now();
     await put(SESSIONS, s);
   }
   emit('workout:changed', { exerciseId });
+  return { planned: removedPlanned, index: removedIndex, sets: removedSets }; // for undo
+}
+
+/** Undo removeExerciseFromSession: restore the planned entry (at its old spot)
+ * and re-insert its exact sets (same ids). Session-scoped; routine untouched. */
+export async function restoreExerciseToSession(sessionId, removed) {
+  if (!removed) return;
+  const s = await get(SESSIONS, sessionId);
+  if (s) {
+    s.plannedExercises = s.plannedExercises || [];
+    if (removed.planned && !s.plannedExercises.some((p) => p.exerciseId === removed.planned.exerciseId)) {
+      const at = removed.index >= 0 && removed.index <= s.plannedExercises.length ? removed.index : s.plannedExercises.length;
+      s.plannedExercises.splice(at, 0, removed.planned);
+    }
+    s.updatedAt = now();
+    await put(SESSIONS, s);
+  }
+  for (const st of (removed.sets || [])) await put(SETS, { ...st });
+  emit('workout:changed', {});
 }
 
 /** Swap an exercise for another within THIS session. Any sets already logged for
@@ -162,8 +226,17 @@ export async function swapExerciseInSession(sessionId, oldExerciseId, newExercis
     s.plannedExercises = s.plannedExercises || [];
     const newEx = await getExercise(newExerciseId);
     const idx = s.plannedExercises.findIndex((p) => p.exerciseId === oldExerciseId);
-    const note = idx >= 0 ? s.plannedExercises[idx].note : '';
-    const entry = { exerciseId: newExerciseId, nameSnapshot: newEx ? newEx.name : 'تمرين', note };
+    const slot = idx >= 0 ? s.plannedExercises[idx] : null;
+    const note = slot ? slot.note : '';
+    // The replacement occupies the SAME execution slot, so it inherits the
+    // slot's rest configuration unless explicitly changed later (item 14).
+    const entry = {
+      exerciseId: newExerciseId,
+      nameSnapshot: newEx ? newEx.name : 'تمرين',
+      note,
+      restBetweenSets: slot ? (slot.restBetweenSets ?? null) : null,
+      restAfterExercise: slot ? (slot.restAfterExercise ?? null) : null,
+    };
     // avoid duplicate planned entry if the new exercise was already present
     const existingNewIdx = s.plannedExercises.findIndex((p) => p.exerciseId === newExerciseId);
     if (idx >= 0) {
@@ -202,9 +275,74 @@ export async function setSessionNotes(id, notes) {
 }
 export async function setSessionCompleted(id, completed) {
   const s = await get(SESSIONS, id); if (!s) return;
-  s.completed = !!completed; s.endTime = completed ? toLocalTime() : s.endTime; s.updatedAt = now();
-  if (completed) { s.restEndsAt = null; s.restKind = null; } // finishing clears any active rest
+  if (completed) {
+    // Finish: bank the running segment as the factual duration; clear rest.
+    Object.assign(s, finishPatch(s));
+    s.endTime = toLocalTime();
+    s.restEndsAt = null; s.restKind = null;
+  } else {
+    // Reopen the SAME session as active — continue from banked duration; the
+    // idle gap between finishing and reopening is excluded. Old override cleared.
+    Object.assign(s, reopenPatch(s));
+  }
+  s.updatedAt = now();
   await put(SESSIONS, s); emit('workout:changed', {});
+}
+
+/** Pause/resume the workout ELAPSED timer (independent of the rest countdown).
+ * Paused time is excluded from effective duration; persisted so reload/relaunch
+ * cannot corrupt the total. */
+export async function pauseSession(id) {
+  const s = await get(SESSIONS, id); if (!s) return;
+  const patch = pausePatch(s); if (!patch) return;
+  Object.assign(s, patch); s.updatedAt = now();
+  await put(SESSIONS, s); emit('workout:changed', {});
+}
+export async function resumeSession(id) {
+  const s = await get(SESSIONS, id); if (!s) return;
+  const patch = resumePatch(s); if (!patch) return;
+  Object.assign(s, patch); s.updatedAt = now();
+  await put(SESSIONS, s); emit('workout:changed', {});
+}
+
+/** Correct the factual duration (seconds). Sets the banked base; if the session
+ * is active+running the live timer keeps counting on top of it. Does not touch
+ * sets/exercises/PRs/identity and never creates a duplicate session. */
+export async function setSessionDuration(id, seconds) {
+  const s = await get(SESSIONS, id); if (!s) return;
+  const patch = setDurationPatch(s, seconds); if (!patch) return;
+  Object.assign(s, patch); s.updatedAt = now();
+  await put(SESSIONS, s); emit('workout:changed', {});
+}
+
+/** Change the routine day of a session that has NO logged sets yet (wrong-day
+ * recovery). Re-snapshots planned exercises + names and resets the duration
+ * model to a fresh start, keeping the SAME session id. Refuses if sets exist so
+ * meaningful logged data is never silently discarded. Returns true on success. */
+export async function changeSessionDay(id, routineId, routineDayId) {
+  const existing = await getSetsForSession(id);
+  if (existing.length) return false;
+  const s = await get(SESSIONS, id); if (!s) return false;
+  const routine = await getRoutine(routineId);
+  const days = await getDays(routineId);
+  const day = days.find((d) => d.id === routineDayId);
+  s.routineId = routineId;
+  s.routineNameSnapshot = routine ? routine.name : '';
+  s.routineDayId = routineDayId;
+  s.routineDayNameSnapshot = day ? day.name : '';
+  s.plannedExercises = await snapshotPlanned(routineDayId);
+  s.startTime = toLocalTime();
+  Object.assign(s, resetDurationPatch(now())); // same id, fresh timer
+  s.updatedAt = now();
+  await put(SESSIONS, s); emit('workout:changed', {});
+  return true;
+}
+
+/** Re-insert a previously deleted set with its EXACT prior fields (undo). */
+export async function restoreSet(record) {
+  if (!record || !record.id) return;
+  await put(SETS, { ...record });
+  emit('workout:changed', { exerciseId: record.exerciseId });
 }
 
 /** Persist the active rest countdown on the session as a TIMESTAMP (+ kind),
@@ -329,6 +467,7 @@ export async function deleteSet(id) {
   const cur = await get(SETS, id);
   await del(SETS, id);
   emit('workout:changed', { exerciseId: cur?.exerciseId });
+  return cur ? { ...cur } : null;   // snapshot for undo (restoreSet)
 }
 
 // ---- exercise memory ----

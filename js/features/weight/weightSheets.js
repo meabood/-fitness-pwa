@@ -4,9 +4,10 @@
 import { el, toast } from '../../core/dom.js';
 import { openSheet } from '../../core/sheet.js';
 import {
-  addWeight, updateWeight, deleteWeight, setOfficial, getEntriesForDate,
+  addWeight, updateWeight, deleteWeight, setOfficial, getEntriesForDate, getAllEntries,
 } from '../../data/weight.repo.js';
 import { defaultNewMeasurementOfficial } from '../../domain/weightStats.js';
+import { isWeightOutlier, referenceWeightBefore } from '../../domain/recovery.js';
 import { todayLocal, toLocalTime, formatArabicDate } from '../../core/dates.js';
 import { formatWeight } from '../../core/num.js';
 
@@ -52,6 +53,10 @@ export async function openAddSheet({ date, afterChange } = {}) {
   const dIn = dateInput(initialDate);
   const tIn = timeInput();
   const nIn = noteInput();
+  // Unsaved-change guard: dirty once the user types a weight or a note.
+  const addSnap = () => [wIn.value, nIn.value].join('\u0001');
+  const addInitial = addSnap();
+  const addDirty = () => addSnap() !== addInitial;
 
   // Toggle default reflects the selected date: first measurement → official;
   // a date that already has an official → new measurement defaults to non-official.
@@ -65,17 +70,36 @@ export async function openAddSheet({ date, afterChange } = {}) {
     offIn.checked = defaultNewMeasurementOfficial(hasOfficial);
   });
 
+  const doSave = async () => {
+    await addWeight({
+      weightKg: Number(wIn.value), localDate: dIn.value, time: tIn.value,
+      note: nIn.value, makeOfficial: offIn.checked,
+    });
+    toast('تم الحفظ');
+    handle.close();
+    afterChange && afterChange();
+  };
   const save = el('button', {
     className: 'btn btn-primary btn-block', text: 'حفظ',
     onClick: async () => {
       if (!validWeight(wIn.value)) { toast('أدخل وزنًا صحيحًا'); wIn.focus(); return; }
-      await addWeight({
-        weightKg: Number(wIn.value), localDate: dIn.value, time: tIn.value,
-        note: nIn.value, makeOfficial: offIn.checked,
-      });
-      toast('تم الحفظ');
-      handle.close();
-      afterChange && afterChange();
+      // Soft typo protection vs the chronologically-appropriate prior
+      // measurement (by date/time, official-preferred) — not merely the
+      // most-recently-created record. Never blocks explicit confirmation.
+      const all = await getAllEntries();
+      const entered = Number(wIn.value);
+      const recent = referenceWeightBefore(all, dIn.value, null, tIn.value);
+      if (recent != null && isWeightOutlier(recent, entered)) {
+        const body2 = el('div', { className: 'stack' }, [
+          el('p', {}, [el('span', { className: 'num', text: `${formatWeight(entered)} كجم؟` })]),
+          el('p', { className: 'muted-sm' }, [el('span', { text: 'وزنك الأخير كان ' }), el('span', { className: 'num', text: `${formatWeight(recent)} كجم` }), el('span', { text: '. تأكّد من الرقم قبل الحفظ.' })]),
+          el('button', { className: 'btn btn-secondary btn-block', text: 'تعديل', onClick: () => h.close() }),
+          el('button', { className: 'btn btn-primary btn-block', text: `تأكيد ${formatWeight(entered)}`, onClick: () => { h.close(); doSave(); } }),
+        ]);
+        const h = openSheet({ title: 'تأكيد الوزن', body: body2 });
+        return;
+      }
+      doSave();
     },
   });
 
@@ -87,7 +111,7 @@ export async function openAddSheet({ date, afterChange } = {}) {
     offRow,
     el('div', { style: { marginTop: 'var(--s-5)' } }, [save]),
   ]);
-  const handle = openSheet({ title: 'تسجيل وزن', body });
+  const handle = openSheet({ title: 'تسجيل وزن', body, dirty: addDirty });
   return handle;
 }
 
@@ -98,6 +122,9 @@ export async function openEditSheet({ entry, afterChange }) {
   const tIn = timeInput(entry.time);
   const nIn = noteInput(entry.note);
   const { row: offRow, input: offIn } = toggle('الوزن الرسمي لهذا اليوم', entry.isOfficial === 1);
+  const snapshot = () => [wIn.value, dIn.value, tIn.value, nIn.value, offIn.checked].join('\u0001');
+  let initial;
+  const isDirty = () => initial != null && snapshot() !== initial;
 
   // The toggle's meaning and default depend on whether the date is being changed:
   //  * same date + already official → checked & disabled (to change the day's
@@ -119,18 +146,37 @@ export async function openEditSheet({ entry, afterChange }) {
   }
   dIn.addEventListener('change', syncOfficialToggle);
   await syncOfficialToggle();
+  initial = snapshot(); // baseline after toggle settled → no false "dirty"
 
+  const saveEdit = async () => {
+    await updateWeight(entry.id, {
+      weightKg: Number(wIn.value), localDate: dIn.value, time: tIn.value,
+      note: nIn.value, makeOfficial: offIn.checked,
+    });
+    toast('تم الحفظ');
+    handle.close();
+    afterChange && afterChange();
+  };
   const save = el('button', {
     className: 'btn btn-primary btn-block', text: 'حفظ التغييرات',
     onClick: async () => {
       if (!validWeight(wIn.value)) { toast('أدخل وزنًا صحيحًا'); wIn.focus(); return; }
-      await updateWeight(entry.id, {
-        weightKg: Number(wIn.value), localDate: dIn.value, time: tIn.value,
-        note: nIn.value, makeOfficial: offIn.checked,
-      });
-      toast('تم الحفظ');
-      handle.close();
-      afterChange && afterChange();
+      // Compare against the prior measurement BEFORE this entry's date, excluding
+      // the entry itself — never against a future/newer-created record (item 8).
+      const all = await getAllEntries();
+      const entered = Number(wIn.value);
+      const recent = referenceWeightBefore(all, dIn.value, entry.id, tIn.value);
+      if (recent != null && isWeightOutlier(recent, entered)) {
+        const body2 = el('div', { className: 'stack' }, [
+          el('p', {}, [el('span', { className: 'num', text: `${formatWeight(entered)} كجم؟` })]),
+          el('p', { className: 'muted-sm' }, [el('span', { text: 'القياس السابق كان ' }), el('span', { className: 'num', text: `${formatWeight(recent)} كجم` }), el('span', { text: '. تأكّد من الرقم قبل الحفظ.' })]),
+          el('button', { className: 'btn btn-secondary btn-block', text: 'تعديل', onClick: () => h.close() }),
+          el('button', { className: 'btn btn-primary btn-block', text: `تأكيد ${formatWeight(entered)}`, onClick: () => { h.close(); saveEdit(); } }),
+        ]);
+        const h = openSheet({ title: 'تأكيد الوزن', body: body2 });
+        return;
+      }
+      saveEdit();
     },
   });
 
@@ -161,7 +207,7 @@ export async function openEditSheet({ entry, afterChange }) {
     el('div', { style: { marginTop: 'var(--s-5)' } }, [save]),
     el('div', { style: { marginTop: 'var(--s-3)' } }, [del]),
   ]);
-  const handle = openSheet({ title: 'تعديل القياس', body });
+  const handle = openSheet({ title: 'تعديل القياس', body, dirty: isDirty });
   return handle;
 }
 

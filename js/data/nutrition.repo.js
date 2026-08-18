@@ -6,7 +6,7 @@
 // null throughout (never coerced to 0). nutritionDays holds an optional per-day
 // completion flag so "unlogged" is distinct from "logged zero".
 
-import { getAllByIndex, get, put, del, tx, reqAsPromise } from '../core/db.js';
+import { getAll, getAllByIndex, get, put, del, tx, reqAsPromise } from '../core/db.js';
 import { uuid } from '../core/ids.js';
 import { now, todayLocal, toLocalTime } from '../core/dates.js';
 import { emit } from '../core/events.js';
@@ -165,6 +165,15 @@ export async function deleteEntry(id) {
   const cur = await get(ENTRIES, id);
   await del(ENTRIES, id);
   emit('nutrition:changed', { localDate: cur?.localDate });
+  return cur ? { ...cur } : null;   // snapshot for undo (restoreEntry)
+}
+
+/** Re-insert a previously deleted nutrition entry with its EXACT fields (undo).
+ * Preserves the immutable snapshot, finals, date, and sourceMealId. */
+export async function restoreEntry(record) {
+  if (!record || !record.id) return;
+  await put(ENTRIES, { ...record });
+  emit('nutrition:changed', { localDate: record.localDate });
 }
 
 /** Duplicate an entry on the same day (new record, same snapshot/finals). */
@@ -204,6 +213,15 @@ export async function copyDay(fromDate, toDate) {
 }
 
 // ---- reads ----
+/** How many historical nutrition entries reference this meal via sourceMealId.
+ * Used to protect referential integrity (a referenced meal may be archived but
+ * not permanently deleted, which would orphan the relationship). */
+export async function countEntriesForMeal(mealId) {
+  if (!mealId) return 0;
+  const all = await getAll(ENTRIES);
+  return all.reduce((n, e) => n + (e.sourceMealId === mealId ? 1 : 0), 0);
+}
+
 export async function getEntriesForDate(localDate) {
   const rows = await getAllByIndex(ENTRIES, 'localDate', IDBKeyRange.only(localDate));
   return rows.sort(byDateTime);

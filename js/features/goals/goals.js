@@ -11,6 +11,8 @@ import { computeWeightSummary } from '../../domain/weightAchievements.js';
 import { formatWeight } from '../../core/num.js';
 import { formatArabicDate, formatArabicDateShort } from '../../core/dates.js';
 import { openPlanEditor } from './goalSheets.js';
+import { openGeneratorSheet } from './generatorSheet.js';
+import { milestoneTimeline } from '../weight/milestoneTimeline.js';
 import { pageHead, hero, statLine, emptyState, numericLTR } from '../../core/ui.js';
 
 const trajectoryText = {
@@ -40,13 +42,18 @@ export function renderGoals(root) {
     root.replaceChildren(el('div', { className: 'route-view stack' }, [
       pageHead(plan.name || 'أهداف الوزن', { sub: numericLTR(`${formatWeight(plan.startWeight)} → ${formatWeight(plan.finalWeight)} كجم`) }),
       statusPanel(s),
-      milestoneTimeline(s),
+      milestonesSection(s),
       el('section', { className: 'section stack' }, [
+        el('button', { className: 'btn btn-secondary btn-block', text: 'إنشاء مراحل تلقائيًا', onClick: () => openGeneratorSheet({ plan, milestones, summary: s, currentOfficial: currentOfficial(s), afterChange: draw }) }),
         el('button', { className: 'btn btn-secondary btn-block', text: 'تعديل الخطة', onClick: () => openPlanEditor({ existing: { plan, milestones }, afterChange: draw }) }),
         el('button', { className: 'btn btn-ghost btn-block', text: 'أرشفة الخطة', onClick: async () => { await archivePlan(plan.id); draw(); } }),
       ]),
     ]));
   }
+
+  // Latest official weigh-in as generation context (factual; may be null).
+  // Includes its own localDate so the generator can pair weight WITH its date.
+  function currentOfficial(s) { return s.latest ? { weightKg: s.latest.weightKg, localDate: s.latest.localDate } : null; }
 
   function statusPanel(s) {
     const lines = [];
@@ -71,23 +78,17 @@ export function renderGoals(root) {
 
   function pl(s) { return s.finalStatus ? s.finalStatus.targetWeight : 0; }
 
-  function milestoneTimeline(s) {
+  function milestonesSection(s) {
     const ms = (s.milestones || []).filter((m) => !m.sameAsFinal);
-    const items = ms.map((m) => ({ w: m.targetWeight, label: m.label, done: m.reached, date: m.reached ? m.achievedDate : m.targetDate }));
-    if (s.finalStatus) items.push({ w: s.finalStatus.targetWeight, done: s.finalStatus.reached, date: s.finalStatus.reached ? s.finalStatus.achievedDate : s.finalStatus.targetDate, final: true });
-    if (!items.length) return el('div', {});
-    items.sort((a, b) => b.w - a.w);
-    const doneCount = items.filter((i) => i.done).length;
+    const total = ms.length + (s.finalStatus ? 1 : 0);
+    if (!total) return el('div', {});
+    const done = ms.filter((m) => m.reached).length + (s.finalStatus && s.finalStatus.reached ? 1 : 0);
     return el('section', { className: 'section' }, [
       el('div', { className: 'section-head' }, [
         el('h2', { text: 'المراحل' }),
-        el('span', { className: 'aux num', text: `${doneCount}/${items.length}` }),
+        el('span', { className: 'aux num', text: `${done}/${total}` }),
       ]),
-      el('div', { className: 'timeline' }, items.map((it) => el('div', { className: `tl-item${it.done ? ' done' : ''}` }, [
-        el('span', { className: 'tl-dot' }),
-        numericLTR(`${formatWeight(it.w)} كجم${it.final ? ' • الهدف' : (it.label ? ' • ' + it.label : '')}`),
-        el('span', { className: 'tl-meta', text: it.done ? `تحقّق ${formatArabicDateShort(it.date)}` : (it.date ? formatArabicDateShort(it.date) : '') }),
-      ]))),
+      milestoneTimeline(s),
     ]);
   }
 

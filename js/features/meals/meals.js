@@ -8,6 +8,7 @@ import { on } from '../../core/events.js';
 import { getActiveMeals, getArchivedMeals, archiveMeal, restoreMeal, deleteMeal, searchMeals } from '../../data/meals.repo.js';
 import { formatInt, formatWeight } from '../../core/num.js';
 import { openMealEditor } from './mealSheets.js';
+import { openSheet } from '../../core/sheet.js';
 import { pageHead, segmented, emptyState } from '../../core/ui.js';
 
 export function renderMeals(root, ctx = {}) {
@@ -42,7 +43,20 @@ export function renderMeals(root, ctx = {}) {
             ? [el('button', { className: 'link-btn', text: 'أرشفة', onClick: async () => { await archiveMeal(m.id); toast('تمت الأرشفة'); } })]
             : [
                 el('button', { className: 'link-btn', text: 'استعادة', onClick: async () => { await restoreMeal(m.id); toast('تمت الاستعادة'); } }),
-                el('button', { className: 'link-btn danger', text: 'حذف', onClick: async () => { await deleteMeal(m.id); toast('تم الحذف'); } }),
+                el('button', { className: 'link-btn danger', text: 'حذف', onClick: async () => {
+                  try { await deleteMeal(m.id); toast('تم الحذف'); }
+                  catch (err) {
+                    if (err && err.name === 'MealReferencedError') {
+                      const body = el('div', { className: 'stack' }, [
+                        el('p', { text: 'هذه الوجبة مستخدمة في سجلك الغذائي.' }),
+                        el('p', { className: 'muted-sm', text: 'يمكن أرشفتها، لكن لا يمكن حذفها نهائيًا للحفاظ على سلامة سجلك.' }),
+                        el('button', { className: 'btn btn-primary btn-block', text: 'أرشفة الوجبة', onClick: async () => { await archiveMeal(m.id); toast('تمت الأرشفة'); h.close(); } }),
+                        el('button', { className: 'btn btn-tertiary btn-block', text: 'إلغاء', onClick: () => h.close() }),
+                      ]);
+                      const h = openSheet({ title: 'لا يمكن الحذف نهائيًا', body });
+                    } else { toast('تعذّر الحذف'); }
+                  }
+                } }),
               ])
           : el('div', { className: 'chev', text: '‹' }),
       ])));

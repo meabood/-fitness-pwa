@@ -12,12 +12,12 @@ import { ICONS } from './icons.js';
  * @param {Function} [opts.onClose]
  * @returns {{close: Function, sheet: HTMLElement}}
  */
-export function openSheet({ title, body, onClose }) {
+export function openSheet({ title, body, onClose, dirty }) {
   const prevFocus = document.activeElement;
 
   const closeBtn = el('button', {
     className: 'sheet-close', attrs: { 'aria-label': 'إغلاق' }, html: ICONS.chevron,
-    onClick: () => close(),
+    onClick: () => attemptClose(),
   });
   const head = el('div', { className: 'sheet-head' }, [
     el('h2', { className: 'sheet-title', text: title || '' }),
@@ -28,9 +28,27 @@ export function openSheet({ title, body, onClose }) {
   }, [head, body]);
   const overlay = el('div', { className: 'sheet-overlay' }, [sheet]);
 
-  function onKey(e) { if (e.key === 'Escape') close(); }
+  function onKey(e) { if (e.key === 'Escape') attemptClose(); }
 
-  function close() {
+  let confirming = false;
+  // Casual dismissal (backdrop / Escape / close button): if the form has
+  // unsaved changes, confirm discarding first (item 12). Never warns when clean.
+  function attemptClose() {
+    if (dirty && dirty() && !confirming) {
+      confirming = true;
+      const bar = el('div', { className: 'dirty-guard' }, [
+        el('span', { className: 'dg-msg', text: 'لديك تغييرات غير محفوظة' }),
+        el('button', { className: 'dg-keep', text: 'متابعة التعديل', onClick: () => { confirming = false; bar.remove(); } }),
+        el('button', { className: 'dg-discard', text: 'تجاهل التغييرات', onClick: () => { bar.remove(); close(true); } }),
+      ]);
+      sheet.append(bar);
+      return;
+    }
+    close(true);
+  }
+
+  function close(force) {
+    if (!force && dirty && dirty()) { attemptClose(); return; }
     document.removeEventListener('keydown', onKey);
     overlay.classList.remove('open');
     overlay.classList.add('closing');
@@ -41,7 +59,7 @@ export function openSheet({ title, body, onClose }) {
     }, 160);
   }
 
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) attemptClose(); });
   document.addEventListener('keydown', onKey);
   document.body.append(overlay);
   requestAnimationFrame(() => {
@@ -50,5 +68,6 @@ export function openSheet({ title, body, onClose }) {
     sheet.querySelector('input, button, select, textarea')?.focus();
   });
 
-  return { close, sheet };
+  // Callers pass close() after a successful save → bypasses the guard by default.
+  return { close: (force = true) => close(force), sheet };
 }

@@ -7,12 +7,33 @@ import { getAll, getAllByIndex, get, put, del, tx, reqAsPromise } from '../core/
 import { uuid } from '../core/ids.js';
 import { now } from '../core/dates.js';
 import { emit } from '../core/events.js';
+import { getConfig, setConfig } from './settings.repo.js';
 
 const ROUTINES = 'routines';
 const DAYS = 'routineDays';
 const REXS = 'routineExercises';
 const clean = (v) => String(v ?? '').trim();
 const byOrder = (a, b) => (a.order - b.order) || (a.createdAt - b.createdAt);
+
+// ---- active routine (persistent daily preference) ----
+/** Set (or clear with null) the user's active routine. Explicit action only —
+ * nothing silently replaces an existing active routine. */
+export async function setActiveRoutine(routineId) {
+  await setConfig('activeRoutineId', routineId || null);
+  emit('routines:changed', {});
+}
+/** The active routine object, or null if unset/missing/archived. */
+export async function getActiveRoutine() {
+  const id = await getConfig('activeRoutineId');
+  if (!id) return null;
+  const r = await get(ROUTINES, id);
+  return (r && r.status === 'active') ? r : null;
+}
+export async function getActiveRoutineId() {
+  const r = await getActiveRoutine();
+  return r ? r.id : null;
+}
+
 
 // ---- routines ----
 export async function createRoutine(name) {

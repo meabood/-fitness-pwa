@@ -24,6 +24,9 @@ export async function openExerciseEditor({ exercise, afterChange } = {}) {
   const notes = txtIn(exercise?.notes, 'ملاحظات (اختياري)');
   const unit = unitSegment(defUnit);
   const errBox = el('div', {});
+  const snap = () => [name.value, muscle.value, equipment.value, machine.value, notes.value].join('\u0001');
+  const initial = snap();
+  const isDirty = () => snap() !== initial;
 
   const save = el('button', {
     className: 'btn btn-primary btn-block', text: exercise ? 'حفظ التغييرات' : 'إضافة',
@@ -45,6 +48,6 @@ export async function openExerciseEditor({ exercise, afterChange } = {}) {
     labeled('الوحدة الافتراضية', unit.node), labeled('ملاحظات', notes),
     errBox, el('div', { style: { marginTop: 'var(--s-4)' } }, [save]),
   ]);
-  const handle = openSheet({ title: exercise ? 'تعديل تمرين' : 'تمرين جديد', body });
+  const handle = openSheet({ title: exercise ? 'تعديل تمرين' : 'تمرين جديد', body, dirty: isDirty });
   return handle;
 }

@@ -11,10 +11,11 @@ import { getActivePlanWithMilestones } from '../../data/goals.repo.js';
 import { getConfig } from '../../data/settings.repo.js';
 import { previousOfficialBefore, changeKg, officialHistoryRows } from '../../domain/weightStats.js';
 import { computeWeightSummary } from '../../domain/weightAchievements.js';
+import { milestoneTimeline } from './milestoneTimeline.js';
 import { weightSeries, rangeDays } from '../../domain/statsData.js';
 import { lineChart, legend } from '../../core/svgChart.js';
 import { formatWeight, formatDelta } from '../../core/num.js';
-import { todayLocal, addDays, formatArabicDate, formatArabicDateShort } from '../../core/dates.js';
+import { todayLocal, addDays, formatArabicDate, formatArabicDateShort, isValidLocalDate } from '../../core/dates.js';
 import { pageHead, hero, statLine, chips, numericLTR } from '../../core/ui.js';
 import { openAddSheet, openDaySheet } from './weightSheets.js';
 
@@ -144,17 +145,11 @@ export function renderWeight(root, ctx = {}) {
 
   function milestonePanel(s) {
     const ms = (s.milestones || []).filter((m) => !m.sameAsFinal);
-    const items = ms.map((m) => ({ w: m.targetWeight, date: m.targetDate, done: m.reached }));
-    if (s.finalStatus) items.push({ w: s.finalStatus.targetWeight, date: s.finalStatus.targetDate, done: s.finalStatus.reached, final: true });
-    if (!items.length) return el('div', {});
-    items.sort((a, b) => b.w - a.w); // heaviest → lightest reads as top→bottom progress
+    const total = ms.length + (s.finalStatus ? 1 : 0);
+    if (!total) return el('div', {});
     return el('section', { className: 'section' }, [
       el('div', { className: 'section-head' }, [el('h2', { text: 'المراحل' })]),
-      el('div', { className: 'timeline' }, items.map((it) => el('div', { className: `tl-item${it.done ? ' done' : ''}` }, [
-        el('span', { className: 'tl-dot' }),
-        numericLTR(`${formatWeight(it.w)} كجم${it.final ? ' • الهدف' : ''}`),
-        it.done ? el('span', { className: 'tl-meta', text: 'تحقّقت' }) : el('span', { className: 'tl-meta' }, [it.date ? numericLTR(formatArabicDateShort(it.date)) : null].filter(Boolean)),
-      ]))),
+      milestoneTimeline(s),
     ]);
   }
 
@@ -192,6 +187,13 @@ export function renderWeight(root, ctx = {}) {
 
   const unsub1 = on('weight:changed', draw);
   const unsub2 = on('goals:changed', draw);
-  draw();
+  draw().then(() => {
+    // If navigated with a valid date (e.g. from the calendar Day Summary), open
+    // that date's existing day sheet so the selected-date context is preserved.
+    // Reuses the existing sheet; creates no records.
+    if (ctx.param && isValidLocalDate(ctx.param)) {
+      openDaySheet({ localDate: ctx.param, afterChange: draw });
+    }
+  });
   return () => { unsub1(); unsub2(); };
 }

@@ -110,6 +110,68 @@ export function changeKg(prev, curr) {
   return curr.weightKg - prev.weightKg;
 }
 
+/**
+ * The local date of the START of the week containing `dateStr`. The app's week
+ * begins on SATURDAY (matching the calendar convention). Pure string/Date math
+ * on the local date only — no UTC boundaries.
+ */
+export function weekStartDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const jsDay = new Date(y, m - 1, d).getDay(); // 0=Sun … 6=Sat
+  const offsetFromSaturday = (jsDay + 1) % 7;   // Sat→0, Sun→1, … Fri→6
+  return addDays(dateStr, -offsetFromSaturday);
+}
+
+/**
+ * Compact "this week" summary from OFFICIAL weigh-ins, for Home. Uses the local
+ * week starting Saturday of `asOfDate`. Honest about missing data:
+ *  - `latest`     : the most recent official weigh-in on/before asOfDate (or null)
+ *  - `weekStart`  : the FIRST official weigh-in within the current week (or null;
+ *                   never fabricated). If the week has only one weigh-in, it is
+ *                   both weekStart and latest.
+ *  - `changeKg`   : latest − weekStart (null when either is missing, or when both
+ *                   are the same single measurement → 0 is not implied)
+ * Derived from history only; nothing is stored.
+ *
+ * @param timeline official entries (any order; will be filtered/sorted)
+ * @param asOfDate "YYYY-MM-DD"
+ */
+/**
+ * Compact "this week" summary from OFFICIAL weigh-ins, for Home. Uses the local
+ * week starting Saturday of `asOfDate`. Everything is scoped strictly to the
+ * current week — a previous-week measurement is NEVER presented as this week's:
+ *  - `hasWeekData` : whether any official weigh-in falls in the current week
+ *  - `firstInWeek` : the FIRST official weigh-in within the week (may be mid-week,
+ *                    e.g. Wednesday), or null. Never fabricated.
+ *  - `latestInWeek`: the LATEST official weigh-in within the week, or null.
+ *  - `changeKg`    : latestInWeek − firstInWeek (null when fewer than two DISTINCT
+ *                    in-week measurements → a single weigh-in never implies 0)
+ *  - `priorLatest` : the most recent official weigh-in BEFORE this week (context
+ *                    only; the caller must not label it as a this-week value)
+ * Derived from history only; nothing is stored.
+ *
+ * @param timeline official entries (any order; will be filtered/sorted)
+ * @param asOfDate "YYYY-MM-DD"
+ */
+export function weekSummary(timeline, asOfDate) {
+  const ws = weekStartDate(asOfDate);
+  const sorted = (timeline || []).filter((e) => e && e.localDate <= asOfDate).sort(byDateTime);
+  const inWeek = sorted.filter((e) => e.localDate >= ws && e.localDate <= asOfDate);
+  const priorLatest = sorted.filter((e) => e.localDate < ws).slice(-1)[0] || null;
+  const firstInWeek = inWeek.length ? inWeek[0] : null;
+  const latestInWeek = inWeek.length ? inWeek[inWeek.length - 1] : null;
+  // change only with two DISTINCT in-week measurements (single weigh-in ⇒ null)
+  const changeKg = (firstInWeek && latestInWeek && firstInWeek.id !== latestInWeek.id)
+    ? (latestInWeek.weightKg - firstInWeek.weightKg) : null;
+  return {
+    weekStartDate: ws,
+    hasWeekData: inWeek.length > 0,
+    firstInWeek, latestInWeek, changeKg, priorLatest,
+    // legacy aliases (pre-0.15.2 callers): scoped to in-week now
+    weekStart: firstInWeek, latest: latestInWeek,
+  };
+}
+
 // ---- Stage 3: moving average + new-lowest (pure) ----
 
 /**

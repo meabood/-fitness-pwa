@@ -8,6 +8,7 @@ import { on } from '../../core/events.js';
 import {
   getActiveRoutines, getArchivedRoutines, createRoutine, duplicateRoutine,
   archiveRoutine, restoreRoutine, getRoutineFull,
+  getActiveRoutineId, setActiveRoutine,
 } from '../../data/routines.repo.js';
 import { getAllExercises } from '../../data/exercises.repo.js';
 import { regionsForExercises, REGION_LABEL_AR } from '../../domain/muscleMap.js';
@@ -19,9 +20,10 @@ export function renderRoutines(root, ctx = {}) {
   let editing = false;
 
   async function draw() {
-    const [routines, allEx] = await Promise.all([
+    const [routines, allEx, activeId] = await Promise.all([
       mode === 'active' ? getActiveRoutines() : getArchivedRoutines(),
       getAllExercises(),
+      getActiveRoutineId(),
     ]);
     const exById = new Map(allEx.map((x) => [x.id, x]));
 
@@ -60,10 +62,14 @@ export function renderRoutines(root, ctx = {}) {
       const metaBits = [];
       if (sum) { metaBits.push(`${sum.days} أيام`); metaBits.push(`${sum.exercises} تمارين`); }
       const open = () => navigate('routine', r.id);
+      const isActive = activeId === r.id && mode === 'active';
       return el('div', { className: 'panel' }, [
         el('div', { className: 'row-inline', style: { justifyContent: 'space-between', alignItems: 'flex-start' } }, [
           el('button', { className: 'grow', style: { background: 'none', border: 'none', textAlign: 'start', padding: 0 }, onClick: open }, [
-            el('div', { className: 'ex-name', text: r.name }),
+            el('div', { className: 'row-inline', style: { gap: 'var(--s-2)' } }, [
+              el('div', { className: 'ex-name', text: r.name }),
+              isActive ? el('span', { className: 'pill-suggest', text: 'الروتين النشط' }) : null,
+            ].filter(Boolean)),
             metaBits.length ? el('div', { className: 'muted', style: { fontSize: 'var(--t-sm)', marginTop: '2px' }, text: metaBits.join(' · ') }) : null,
             chips.length ? el('div', { className: 'muted-sm', style: { marginTop: '4px' }, text: chips.join(' · ') }) : null,
             r.notes ? el('div', { className: 'muted-sm', style: { marginTop: '4px' }, text: r.notes }) : null,
@@ -73,9 +79,10 @@ export function renderRoutines(root, ctx = {}) {
         editing ? el('div', { className: 'row-inline', style: { marginTop: 'var(--s-3)', gap: 'var(--s-2)' } }, mode === 'active'
           ? [
               el('button', { className: 'btn btn-secondary', text: 'فتح', onClick: open }),
+              !isActive ? el('button', { className: 'btn btn-secondary', text: 'تعيين نشط', onClick: async () => { await setActiveRoutine(r.id); toast('أصبح الروتين النشط'); } }) : null,
               el('button', { className: 'btn btn-secondary', text: 'نسخ', onClick: async () => { await duplicateRoutine(r.id); toast('تم النسخ'); } }),
               el('button', { className: 'btn btn-danger', text: 'أرشفة', onClick: async () => { await archiveRoutine(r.id); toast('تمت الأرشفة'); } }),
-            ]
+            ].filter(Boolean)
           : [el('button', { className: 'btn btn-secondary', text: 'استعادة', onClick: async () => { await restoreRoutine(r.id); toast('تمت الاستعادة'); } })]) : null,
       ].filter(Boolean));
     }

@@ -6,6 +6,7 @@ import { getAll, getAllByIndex, get, put, del } from '../core/db.js';
 import { uuid } from '../core/ids.js';
 import { now } from '../core/dates.js';
 import { emit } from '../core/events.js';
+import { countEntriesForMeal } from './nutrition.repo.js';
 
 const STORE = 'meals';
 
@@ -78,7 +79,14 @@ export const archiveMeal = (id) => setMealStatus(id, 'archived');
 export const restoreMeal = (id) => setMealStatus(id, 'active');
 
 /** Permanent delete. Safe for history (entries are snapshots), but archive is preferred. */
+/** Permanent delete. Refuses when the meal is referenced by historical nutrition
+ * entries (deleting would orphan sourceMealId, a state the backup validator
+ * rejects). Callers should archive instead. Throws MealReferencedError. */
 export async function deleteMeal(id) {
+  const refs = await countEntriesForMeal(id);
+  if (refs > 0) {
+    throw Object.assign(new Error('meal referenced'), { name: 'MealReferencedError', refs });
+  }
   await del(STORE, id);
   emit('meals:changed', {});
 }

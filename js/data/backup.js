@@ -287,14 +287,16 @@ export async function importBackup(obj, { mode = 'replace' } = {}) {
   return { mode, counts: Object.fromEntries(BACKUP_STORES.map((s) => [s, DERIVED_STORES.has(s) ? 0 : plan.puts[s].length])), skipped: plan.skipped };
 }
 
-export function backupFilename(date = todayLocal()) { return `fitness-backup-${date}.json`; }
+export function backupFilename(date = todayLocal(), prefix = 'fitness-backup') { return `${prefix}-${date}.json`; }
 
-/** Trigger a local download (Blob object URL — no network). */
-export function downloadBackup(obj) {
+/** Trigger a local download (Blob object URL — no network). An optional prefix
+ * makes a file factually distinguishable (e.g. the pre-restore safety backup:
+ * "fitness-backup-before-restore-YYYY-MM-DD.json"). */
+export function downloadBackup(obj, prefix = 'fitness-backup') {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = backupFilename();
+  a.href = url; a.download = backupFilename(todayLocal(), prefix);
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

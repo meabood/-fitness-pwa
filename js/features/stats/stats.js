@@ -17,6 +17,7 @@ import { openExercisePicker } from '../exercises/exercisePicker.js';
 import { rangeDays, dayIndex, nutritionSeries, weightSeries, exerciseUnitSeries } from '../../domain/statsData.js';
 import { formatWeight, formatInt } from '../../core/num.js';
 import { pageHead, segmented, chips, statLine } from '../../core/ui.js';
+import { mountCalendar } from './calendar.js';
 
 const RANGES = [
   { key: '7d', label: '٧ أيام', days: 7 },
@@ -48,26 +49,47 @@ export function renderStats(root, ctx = {}) {
     return [...new Set(picks)].map((d) => ({ x: idx.get(d), label: formatArabicDateShort(d) }));
   }
 
+  let calendarApi = null;
+
   async function draw() {
+    // Calendar-first: the monthly calendar renders at the very top and owns its
+    // own container so month navigation never reloads the charts below.
     root.replaceChildren(el('div', { className: 'route-view stack' }, [
       pageHead('الإحصائيات'),
-      tabs(),
-      rangeBar(),
+      el('div', { id: 'stats-calendar' }),
+      el('div', { className: 'section-head', style: { marginTop: 'var(--s-4)' } }, [el('h2', { text: 'التحليلات' })]),
+      el('div', { id: 'stats-tabs' }, [tabs()]),
+      el('div', { id: 'stats-range' }, [rangeBar()]),
       el('div', { id: 'stats-body' }, [el('div', { className: 'notice', text: 'جارٍ التحميل…' })]),
     ]));
+    calendarApi = mountCalendar(root.querySelector('#stats-calendar'), { navigate });
     const body = root.querySelector('#stats-body');
     if (tab === 'weight') body.replaceChildren(await weightPanel());
     else if (tab === 'nutrition') body.replaceChildren(await nutritionPanel());
     else body.replaceChildren(await exercisePanel());
   }
 
+  async function drawBody() {
+    const body = root.querySelector('#stats-body');
+    if (!body) return draw();
+    body.replaceChildren(el('div', { className: 'notice', text: 'جارٍ التحميل…' }));
+    if (tab === 'weight') body.replaceChildren(await weightPanel());
+    else if (tab === 'nutrition') body.replaceChildren(await nutritionPanel());
+    else body.replaceChildren(await exercisePanel());
+    // keep the tab/range controls in sync without touching the calendar
+    const tabsHost = root.querySelector('#stats-tabs');
+    const rangeHost = root.querySelector('#stats-range');
+    if (tabsHost) tabsHost.replaceChildren(tabs());
+    if (rangeHost) rangeHost.replaceChildren(rangeBar());
+  }
+
   function tabs() {
     return segmented([
       { key: 'weight', label: 'الوزن' }, { key: 'nutrition', label: 'التغذية' }, { key: 'exercise', label: 'التمارين' },
-    ], tab, (k) => { tab = k; draw(); });
+    ], tab, (k) => { tab = k; drawBody(); });
   }
   function rangeBar() {
-    return chips(RANGES.map((r) => ({ key: r.key, label: r.label })), rangeKey, (k) => { rangeKey = k; draw(); }, { scroll: true });
+    return chips(RANGES.map((r) => ({ key: r.key, label: r.label })), rangeKey, (k) => { rangeKey = k; drawBody(); }, { scroll: true });
   }
 
   async function weightPanel() {
@@ -164,7 +186,7 @@ export function renderStats(root, ctx = {}) {
 
   async function exercisePanel() {
     const actives = await getActiveExercises();
-    const pick = el('button', { className: 'btn btn-secondary btn-block', text: exerciseName ? `التمرين: ${exerciseName}` : 'اختر تمرينًا', onClick: () => openExercisePicker({ onPick: (x) => { exerciseId = x.id; exerciseName = x.nameEn || x.name; draw(); } }) });
+    const pick = el('button', { className: 'btn btn-secondary btn-block', text: exerciseName ? `التمرين: ${exerciseName}` : 'اختر تمرينًا', onClick: () => openExercisePicker({ onPick: (x) => { exerciseId = x.id; exerciseName = x.nameEn || x.name; drawBody(); } }) });
     if (!exerciseId) {
       return el('div', { className: 'stack' }, [
         pick,
@@ -198,10 +220,10 @@ export function renderStats(root, ctx = {}) {
     ].filter(Boolean));
   }
 
-  const unsub1 = on('weight:changed', () => { if (tab === 'weight') draw(); });
-  const unsub2 = on('nutrition:changed', () => { if (tab === 'nutrition') draw(); });
-  const unsub3 = on('workout:changed', () => { if (tab === 'exercise') draw(); });
-  const unsub4 = on('goals:changed', () => { if (tab === 'weight') draw(); });
+  const unsub1 = on('weight:changed', () => { if (tab === 'weight') drawBody(); });
+  const unsub2 = on('nutrition:changed', () => { if (tab === 'nutrition') drawBody(); });
+  const unsub3 = on('workout:changed', () => { if (tab === 'exercise') drawBody(); });
+  const unsub4 = on('goals:changed', () => { if (tab === 'weight') drawBody(); });
   draw();
   return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
 }
